@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BaseRemoteStrategy} from "./bases/BaseRemoteStrategy.sol";
-import {BaseCCTP} from "./BaseCCTP.sol";
+import {BaseCCTP} from "./bases/BaseCCTP.sol";
 
 /// @notice Remote strategy that receives USDC via CCTP and deploys to ERC4626 vault
 /// @dev Handles deposits, withdrawals, and profit/loss reporting via CCTP
@@ -26,7 +26,7 @@ contract CCTPRemoteStrategy is BaseRemoteStrategy, BaseCCTP {
             bytes32(uint256(_sourceDomain)),
             _remoteCounterpart
         )
-        BaseCCTP(_tokenMessenger, _messageTransmitter)
+        BaseCCTP(_asset, _tokenMessenger, _messageTransmitter)
     {
         asset.forceApprove(_tokenMessenger, type(uint256).max);
         asset.forceApprove(_vault, type(uint256).max);

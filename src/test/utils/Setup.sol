@@ -30,9 +30,9 @@ interface IFactory {
 }
 
 contract Setup is Test, IEvents {
+    ICreateX public createX =
+        ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
 
-    ICreateX public createX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
-    
     // Contract instances that we will use repeatedly.
     ERC20 public asset;
     IStrategyInterface public strategy;
@@ -157,13 +157,14 @@ contract Setup is Test, IEvents {
     function deployMainnetContracts()
         public
         returns (StrategyFactory _strategyFactory, IStrategyInterface _strategy)
-    {      
+    {
         // Deploy Strategy on Ethereum
         vm.selectFork(ethFork);
 
         bytes memory creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
+                management,
                 USDC_ETHEREUM,
                 ETH_TOKEN_MESSENGER,
                 ETH_MESSAGE_TRANSMITTER
@@ -171,7 +172,10 @@ contract Setup is Test, IEvents {
         );
         bytes32 salt = bytes32(abi.encode("gigga goopa poo poo"));
 
-        address _remoteFactory = ICreateX(createX).deployCreate3(salt, creationCode);
+        address _remoteFactory = ICreateX(createX).deployCreate3(
+            salt,
+            creationCode
+        );
 
         _strategyFactory = new StrategyFactory(
             management,
@@ -186,12 +190,12 @@ contract Setup is Test, IEvents {
 
         // Deploy strategy directly with the known remote counterpart
         _strategy = IStrategyInterface(
-           _strategyFactory.newStrategy(
-            "CCTP USDC Strategy",
-            BASE_DOMAIN,
-            address(vault),
-            depositor
-           )
+            _strategyFactory.newStrategy(
+                "CCTP USDC Strategy",
+                BASE_DOMAIN,
+                address(vault),
+                depositor
+            )
         );
 
         vm.prank(management);
@@ -202,14 +206,18 @@ contract Setup is Test, IEvents {
 
     function deployRemoteContracts()
         public
-        returns (RemoteStrategyFactory _remoteFactory, RemoteStrategy _remoteStrategy)
+        returns (
+            RemoteStrategyFactory _remoteFactory,
+            RemoteStrategy _remoteStrategy
+        )
     {
         // Deploy on Base
         vm.selectFork(baseFork);
-        
+
         bytes memory creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
+                governance,
                 USDC_BASE,
                 BASE_TOKEN_MESSENGER,
                 BASE_MESSAGE_TRANSMITTER
@@ -217,13 +225,13 @@ contract Setup is Test, IEvents {
         );
         bytes32 salt = bytes32(abi.encode("gigga goopa poo poo"));
 
-        _remoteFactory = RemoteStrategyFactory(ICreateX(createX).deployCreate3(salt, creationCode));
-
+        _remoteFactory = RemoteStrategyFactory(
+            ICreateX(createX).deployCreate3(salt, creationCode)
+        );
 
         _remoteStrategy = RemoteStrategy(
             _remoteFactory.deployRemoteStrategy(
                 address(vault),
-                governance,
                 ETHEREUM_DOMAIN,
                 address(strategy)
             )

@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {BaseCrossChain} from "./bases/BaseCrossChain.sol";
-import {BaseCCTP} from "./BaseCCTP.sol";
+import {BaseCCTP} from "./bases/BaseCCTP.sol";
 
 /// @notice Strategy that bridges native USDC via CCTP to a destination chain
 /// and tracks the remote deployed capital through periodic accounting updates.
@@ -28,7 +28,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
             _remoteCounterpart,
             _depositer
         )
-        BaseCCTP(_tokenMessenger, _messageTransmitter)
+        BaseCCTP(_asset, _tokenMessenger, _messageTransmitter)
     {
         asset.forceApprove(_tokenMessenger, type(uint256).max);
     }

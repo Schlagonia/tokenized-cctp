@@ -6,23 +6,22 @@ import {IStrategyInterface} from "./interfaces/IStrategyInterface.sol";
 import {RemoteStrategyFactory} from "./RemoteStrategyFactory.sol";
 import {CREATE} from "./libraries/CREATE.sol";
 import {CREATE3} from "./libraries/CREATE3.sol";
+import {BaseCCTP} from "./bases/BaseCCTP.sol";
 
-contract StrategyFactory {
+contract StrategyFactory is BaseCCTP {
     event NewStrategy(address indexed strategy, uint32 indexed remoteDomain);
 
-    address public immutable USDC;
-    address public immutable TOKEN_MESSENGER;
-    address public immutable MESSAGE_TRANSMITTER;
+    address public immutable REMOTE_FACTORY;
 
-    RemoteStrategyFactory public immutable remoteFactory;
+    uint256 public nonce;
+
+    address public keeper;
+
+    address public management;
 
     address public emergencyAdmin;
 
-    address public management;
     address public performanceFeeRecipient;
-    address public keeper;
-
-    uint256 public nonce;
 
     /// @notice Track the deployments. remoteDomain => remoteVault => strategy
     mapping(uint32 => mapping(address => address)) public deployments;
@@ -36,16 +35,13 @@ contract StrategyFactory {
         address _tokenMessenger,
         address _messageTransmitter,
         address _remoteFactory
-    ) {
+    ) BaseCCTP(_usdc, _tokenMessenger, _messageTransmitter) {
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
         emergencyAdmin = _emergencyAdmin;
 
-        USDC = _usdc;
-        TOKEN_MESSENGER = _tokenMessenger;
-        MESSAGE_TRANSMITTER = _messageTransmitter;
-        remoteFactory = RemoteStrategyFactory(_remoteFactory);
+        REMOTE_FACTORY = _remoteFactory;
 
         nonce = 1;
     }
@@ -73,28 +69,30 @@ contract StrategyFactory {
             0, // Ethereum domain (origin chain)
             predictedStrategyAddress
         );
-        
+
         IStrategyInterface _newStrategy = IStrategyInterface(
             address(
                 new Strategy(
                     USDC,
                     _name,
-                    TOKEN_MESSENGER,
-                    MESSAGE_TRANSMITTER,
+                    address(TOKEN_MESSENGER),
+                    address(MESSAGE_TRANSMITTER),
                     _remoteDomain,
                     _remoteCounterpart,
                     _depositer
                 )
             )
         );
- 
 
-        require(address(_newStrategy) == predictedStrategyAddress, "Predicted strategy address does not match");
+        require(
+            address(_newStrategy) == predictedStrategyAddress,
+            "Predicted strategy address does not match"
+        );
 
         _newStrategy.setPerformanceFee(0);
 
         _newStrategy.setProfitMaxUnlockTime(0);
-        
+
         _newStrategy.setPerformanceFeeRecipient(performanceFeeRecipient);
 
         _newStrategy.setKeeper(keeper);
@@ -151,10 +149,11 @@ contract StrategyFactory {
         uint32 _remoteDomain,
         address _remoteCounterpart
     ) public view returns (address) {
-        return CREATE3.getDeployed(
-            address(remoteFactory), 
-            getSalt(_remoteVault, _remoteDomain, _remoteCounterpart)
-        );
+        return
+            CREATE3.getDeployed(
+                address(REMOTE_FACTORY),
+                getSalt(_remoteVault, _remoteDomain, _remoteCounterpart)
+            );
     }
 
     function getSalt(
@@ -163,5 +162,14 @@ contract StrategyFactory {
         address _remoteCounterpart
     ) public pure returns (bytes32) {
         return keccak256(abi.encode(_vault, _remoteDomain, _remoteCounterpart));
+    }
+
+    function handleReceiveFinalizedMessage(
+        uint32 _sourceDomain,
+        bytes32 _sender,
+        uint32 _finalityThresholdExecuted,
+        bytes calldata _messageBody
+    ) external virtual override returns (bool) {
+        revert("Not implemented");
     }
 }

@@ -8,6 +8,8 @@ import {IMessageTransmitter} from "./circle/IMessageTransmitter.sol";
 /// @notice Interface for CCTP-specific message handler base contract
 /// @dev Extends IMessageHandlerV2 with CCTP contract accessors
 interface IBaseCCTP is IMessageHandlerV2 {
+    function USDC() external view returns (address);
+
     /// @notice CCTP token messenger contract
     /// @return The token messenger address
     function TOKEN_MESSENGER() external view returns (ITokenMessenger);

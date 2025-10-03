@@ -30,7 +30,6 @@ contract CCTPIntegrationTest is Setup {
         assertGt(shares, 0);
         assertEq(strategy.balanceOf(depositor), shares);
 
-  
         // Step 3: Simulate CCTP message delivery to Base
         vm.selectFork(baseFork);
 
@@ -76,8 +75,15 @@ contract CCTPIntegrationTest is Setup {
         );
 
         // Verify accounting
-        assertEq(strategy.remoteAssets(), uint256(int256(depositAmount) + reportedAmount));
-        assertApproxEqAbs(strategy.totalAssets(), uint256(int256(depositAmount) + reportedAmount), 100);
+        assertEq(
+            strategy.remoteAssets(),
+            uint256(int256(depositAmount) + reportedAmount)
+        );
+        assertApproxEqAbs(
+            strategy.totalAssets(),
+            uint256(int256(depositAmount) + reportedAmount),
+            100
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -97,13 +103,22 @@ contract CCTPIntegrationTest is Setup {
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(withdrawAmount);
 
-        assertEq(remoteStrategy.trackedAssets(), depositAmount - withdrawAmount);
-        assertApproxEqAbs(remoteStrategy.totalAssets(), depositAmount - withdrawAmount, 100);
-
+        assertEq(
+            remoteStrategy.trackedAssets(),
+            depositAmount - withdrawAmount
+        );
+        assertApproxEqAbs(
+            remoteStrategy.totalAssets(),
+            depositAmount - withdrawAmount,
+            100
+        );
 
         vm.selectFork(ethFork);
         airdropUSDC(address(strategy), withdrawAmount);
-        bytes memory messageBody = abi.encode(uint256(1), -int256(withdrawAmount));
+        bytes memory messageBody = abi.encode(
+            uint256(1),
+            -int256(withdrawAmount)
+        );
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -166,7 +181,10 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with profit
-        bytes memory reportMessage = abi.encode(uint256(1), int256(reportedProfit));
+        bytes memory reportMessage = abi.encode(
+            uint256(1),
+            int256(reportedProfit)
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -211,7 +229,10 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with loss
-        bytes memory reportMessage = abi.encode(uint256(1), int256(reportedProfit));
+        bytes memory reportMessage = abi.encode(
+            uint256(1),
+            int256(reportedProfit)
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -239,7 +260,6 @@ contract CCTPIntegrationTest is Setup {
     //////////////////////////////////////////////////////////////*/
 
     function test_e2e_multipleDeposits() public {
-
         // Multiple deposits
         uint256[] memory amounts = new uint256[](3);
         amounts[0] = 10000e6; // $10k
@@ -262,14 +282,16 @@ contract CCTPIntegrationTest is Setup {
 
         uint256 totalDeposited = amounts[0] + amounts[1] + amounts[2];
         // Verify shares proportional to deposits
-       assertEq(strategy.balanceOf(depositor), totalDeposited);
+        assertEq(strategy.balanceOf(depositor), totalDeposited);
 
         // Process on Base
         vm.selectFork(baseFork);
 
-        uint256 totalValue = vault.convertToAssets(vault.balanceOf(address(remoteStrategy))) + USDC_BASE.balanceOf(address(remoteStrategy));
+        uint256 totalValue = vault.convertToAssets(
+            vault.balanceOf(address(remoteStrategy))
+        ) + USDC_BASE.balanceOf(address(remoteStrategy));
         assertApproxEqAbs(totalValue, totalDeposited, 100);
-        
+
         // Generate profit
         skip(1 days);
 
@@ -305,7 +327,7 @@ contract CCTPIntegrationTest is Setup {
     function _completeDepositFlow(uint256 _amount) internal {
         // Deposit on Ethereum
         vm.selectFork(ethFork);
-        
+
         uint256 nexMessageId = strategy.nextRequestId();
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 

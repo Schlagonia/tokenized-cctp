@@ -17,7 +17,10 @@ contract RemoteStrategyTests is Setup {
 
         vm.selectFork(baseFork);
         airdropUSDC(address(remoteStrategy), _amount);
-        bytes memory messageBody = abi.encode(currentRequestId, int256(_amount));
+        bytes memory messageBody = abi.encode(
+            currentRequestId,
+            int256(_amount)
+        );
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
             ETHEREUM_DOMAIN,
@@ -200,7 +203,11 @@ contract RemoteStrategyTests is Setup {
         remoteStrategy.processWithdrawal(withdrawAmount);
 
         assertEq(remoteStrategy.trackedAssets(), amount - withdrawAmount);
-        assertApproxEqAbs(vault.convertToAssets(vault.balanceOf(address(remoteStrategy))), amount - withdrawAmount, 100);
+        assertApproxEqAbs(
+            vault.convertToAssets(vault.balanceOf(address(remoteStrategy))),
+            amount - withdrawAmount,
+            100
+        );
     }
 
     function test_withdrawFromVaultIfNeeded() public useBaseFork {

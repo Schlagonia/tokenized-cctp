@@ -3,11 +3,14 @@ pragma solidity ^0.8.18;
 
 library CREATE {
     // Minimal RLP for (sender, nonce) where nonce fits in <= 7 bytes (covers practical ranges)
-    function predict(address deployer, uint256 nonce) internal pure returns (address) {
+    function predict(
+        address deployer,
+        uint256 nonce
+    ) internal pure returns (address) {
         bytes memory rlpNonce;
 
         if (nonce == 0) {
-            rlpNonce = hex"80";                    // RLP empty
+            rlpNonce = hex"80"; // RLP empty
         } else if (nonce <= 0x7f) {
             rlpNonce = abi.encodePacked(uint8(nonce));
         } else if (nonce <= 0xff) {

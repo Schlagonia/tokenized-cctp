@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {IMessageHandlerV2} from "./interfaces/circle/IMessageHandlerV2.sol";
-import {ITokenMessenger} from "./interfaces/circle/ITokenMessenger.sol";
-import {IMessageTransmitter} from "./interfaces/circle/IMessageTransmitter.sol";
+import {IMessageHandlerV2} from "../interfaces/circle/IMessageHandlerV2.sol";
+import {ITokenMessenger} from "../interfaces/circle/ITokenMessenger.sol";
+import {IMessageTransmitter} from "../interfaces/circle/IMessageTransmitter.sol";
 
 /// @notice CCTP-specific message handler base contract
 /// @dev Validates CCTP messages and routes to implementations
 abstract contract BaseCCTP is IMessageHandlerV2 {
+    /// @notice The USDC token address
+    address public immutable USDC;
+
     /// @notice CCTP token messenger contract
     ITokenMessenger public immutable TOKEN_MESSENGER;
 
@@ -17,12 +20,19 @@ abstract contract BaseCCTP is IMessageHandlerV2 {
     /// @notice The threshold at which (and above) messages are considered finalized
     uint32 internal constant FINALITY_THRESHOLD_FINALIZED = 2_000;
 
-    constructor(address _tokenMessenger, address _messageTransmitter) {
+    constructor(
+        address _usdc,
+        address _tokenMessenger,
+        address _messageTransmitter
+    ) {
         require(
-            _tokenMessenger != address(0) && _messageTransmitter != address(0),
+            _tokenMessenger != address(0) &&
+                _messageTransmitter != address(0) &&
+                _usdc != address(0),
             "ZeroAddress"
         );
 
+        USDC = _usdc;
         TOKEN_MESSENGER = ITokenMessenger(_tokenMessenger);
         MESSAGE_TRANSMITTER = IMessageTransmitter(_messageTransmitter);
     }
