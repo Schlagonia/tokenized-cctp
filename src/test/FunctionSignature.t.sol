@@ -13,6 +13,7 @@ contract FunctionSignatureTest is Setup {
     // no function signature collisions occurred from the custom functions.
     // Does not check functions that are strategy dependant and will be checked in other tests
     function test_functionCollisions() public {
+        vm.selectFork(ethFork);
         uint256 wad = 1e18;
         vm.expectRevert("initialized");
         strategy.initialize(

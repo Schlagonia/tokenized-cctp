@@ -9,7 +9,7 @@ interface ITokenMessenger {
         address burnToken,
         bytes32 destinationCaller,
         uint256 maxFee,
-        uint256 minFinalityThreshold
+        uint32 minFinalityThreshold
     ) external;
 
     function depositForBurnWithHook(
@@ -19,7 +19,7 @@ interface ITokenMessenger {
         address burnToken,
         bytes32 destinationCaller,
         uint256 maxFee,
-        uint256 minFinalityThreshold,
+        uint32 minFinalityThreshold,
         bytes calldata hookData
     ) external;
 }

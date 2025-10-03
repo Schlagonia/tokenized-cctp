@@ -2,8 +2,8 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Script.sol";
-import {Strategy} from "../src/Strategy.sol";
-import {RemoteStrategy} from "../src/RemoteStrategy.sol";
+import {CCTPStrategy as Strategy} from "../src/CCTPStrategy.sol";
+import {CCTPRemoteStrategy as RemoteStrategy} from "../src/CCTPRemoteStrategy.sol";
 import {StrategyFactory} from "../src/StrategyFactory.sol";
 import {CCTPHelpers} from "../src/libraries/CCTPHelpers.sol";
 

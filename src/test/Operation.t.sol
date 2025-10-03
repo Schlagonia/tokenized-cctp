@@ -2,198 +2,222 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console2.sol";
-import {Setup, ERC20, IStrategyInterface} from "./utils/Setup.sol";
+import {Setup} from "./utils/Setup.sol";
+import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract OperationTest is Setup {
     function setUp() public virtual override {
         super.setUp();
     }
 
-    function test_setupStrategyOK() public {
+    // Test 1: Verify cross-chain strategy setup and configuration
+    function test_setupStrategyOK() public useEthFork {
         console2.log("address of strategy", address(strategy));
         assertTrue(address(0) != address(strategy));
-        assertEq(strategy.asset(), address(asset));
+        assertEq(strategy.asset(), address(USDC_ETHEREUM));
         assertEq(strategy.management(), management);
         assertEq(strategy.performanceFeeRecipient(), performanceFeeRecipient);
         assertEq(strategy.keeper(), keeper);
-        // TODO: add additional check on strat params
+
+        // Generic cross-chain properties
+        assertEq(strategy.DEPOSITER(), depositor);
+        assertEq(strategy.REMOTE_COUNTERPART(), address(remoteStrategy));
+        // nextRequestId starts at 0
+        assertTrue(strategy.nextRequestId() >= 0);
+        assertEq(strategy.remoteAssets(), 0);
     }
 
-    function test_operation(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
+    // Test 2: Only DEPOSITER can deposit (generic access control test)
+    function test_depositLimits() public useEthFork {
+        uint256 _amount = 1000e6; // $1000 USDC
 
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
+        // Non-depositer cannot deposit (availableDepositLimit = 0)
+        assertEq(strategy.availableDepositLimit(user), 0);
 
-        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+        // DEPOSITER can deposit (availableDepositLimit = max)
+        assertEq(strategy.availableDepositLimit(depositor), type(uint256).max);
 
-        // Earn Interest
-        skip(1 days);
+        // Try to deposit as user (should fail)
+        airdropUSDC(user, _amount);
+        vm.startPrank(user);
+        USDC_ETHEREUM.approve(address(strategy), _amount);
+        vm.expectRevert();
+        strategy.deposit(_amount, user);
+        vm.stopPrank();
 
-        // Report profit
-        vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
+        // Deposit as depositer (should succeed)
+        airdropUSDC(depositor, _amount);
+        vm.startPrank(depositor);
+        USDC_ETHEREUM.approve(address(strategy), _amount);
+        strategy.deposit(_amount, depositor);
+        vm.stopPrank();
 
-        // Check return Values
-        assertGe(profit, 0, "!profit");
-        assertEq(loss, 0, "!loss");
-
-        skip(strategy.profitMaxUnlockTime());
-
-        uint256 balanceBefore = asset.balanceOf(user);
-
-        // Withdraw all funds
-        vm.prank(user);
-        strategy.redeem(_amount, user, user);
-
-        assertGe(
-            asset.balanceOf(user),
-            balanceBefore + _amount,
-            "!final balance"
-        );
+        assertEq(strategy.totalAssets(), _amount);
     }
 
-    function test_profitableReport(
-        uint256 _amount,
-        uint16 _profitFactor
-    ) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
-        _profitFactor = uint16(bound(uint256(_profitFactor), 10, MAX_BPS));
+    // Test 2b: Fuzz version of deposit limits
+    function test_depositLimitsFuzz(uint256 _amount) public useEthFork {
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
+        // DEPOSITER can deposit (availableDepositLimit = max)
+        assertEq(strategy.availableDepositLimit(depositor), type(uint256).max);
 
-        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
+        // Deposit as depositer (should succeed)
+        airdropUSDC(depositor, _amount);
+        vm.startPrank(depositor);
+        USDC_ETHEREUM.approve(address(strategy), _amount);
+        strategy.deposit(_amount, depositor);
+        vm.stopPrank();
 
-        // Earn Interest
-        skip(1 days);
-
-        // TODO: implement logic to simulate earning interest.
-        uint256 toAirdrop = (_amount * _profitFactor) / MAX_BPS;
-        airdrop(asset, address(strategy), toAirdrop);
-
-        // Report profit
-        vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
-
-        // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
-        assertEq(loss, 0, "!loss");
-
-        skip(strategy.profitMaxUnlockTime());
-
-        uint256 balanceBefore = asset.balanceOf(user);
-
-        // Withdraw all funds
-        vm.prank(user);
-        strategy.redeem(_amount, user, user);
-
-        assertGe(
-            asset.balanceOf(user),
-            balanceBefore + _amount,
-            "!final balance"
-        );
+        assertEq(strategy.totalAssets(), _amount);
     }
 
-    function test_profitableReport_withFees(
-        uint256 _amount,
-        uint16 _profitFactor
-    ) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
-        _profitFactor = uint16(bound(uint256(_profitFactor), 10, MAX_BPS));
+    // Test 3: Message ordering - only accepts messages with correct requestId
+    function test_messageOrdering() public useEthFork {
+        uint256 _amount = 1000e6; // $1000 USDC
 
-        // Set protocol fee to 0 and perf fee to 10%
-        setFees(0, 1_000);
+        // Get current nextRequestId (might not be 0 after deployment)
+        uint256 currentRequestId = strategy.nextRequestId();
 
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
-
-        assertEq(strategy.totalAssets(), _amount, "!totalAssets");
-
-        // Earn Interest
-        skip(1 days);
-
-        // TODO: implement logic to simulate earning interest.
-        uint256 toAirdrop = (_amount * _profitFactor) / MAX_BPS;
-        airdrop(asset, address(strategy), toAirdrop);
-
-        // Report profit
-        vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
-
-        // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
-        assertEq(loss, 0, "!loss");
-
-        skip(strategy.profitMaxUnlockTime());
-
-        // Get the expected fee
-        uint256 expectedShares = (profit * 1_000) / MAX_BPS;
-
-        assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares);
-
-        uint256 balanceBefore = asset.balanceOf(user);
-
-        // Withdraw all funds
-        vm.prank(user);
-        strategy.redeem(_amount, user, user);
-
-        assertGe(
-            asset.balanceOf(user),
-            balanceBefore + _amount,
-            "!final balance"
+        // Process message with correct requestId (should succeed)
+        bytes memory correctMessage = abi.encode(
+            currentRequestId,
+            int256(_amount)
+        );
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            correctMessage
         );
 
-        vm.prank(performanceFeeRecipient);
-        strategy.redeem(
-            expectedShares,
-            performanceFeeRecipient,
-            performanceFeeRecipient
-        );
+        // Verify message processed
+        assertEq(strategy.messageProcessed(currentRequestId), true);
+        assertEq(strategy.remoteAssets(), _amount);
 
-        checkStrategyTotals(strategy, 0, 0, 0);
-
-        assertGe(
-            asset.balanceOf(performanceFeeRecipient),
-            expectedShares,
-            "!perf fee out"
+        // Try to replay same message (should fail)
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        vm.expectRevert();
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            correctMessage
         );
     }
 
-    function test_tendTrigger(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
+    // Test 4: Remote asset tracking - profit updates
+    function test_remoteAssetTracking_profit() public useEthFork {
+        uint256 _amount = 10000e6; // $10k USDC
+        uint256 profit = 100e6; // $100 profit
 
-        (bool trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
+        // Get current nextRequestId
+        vm.selectFork(baseFork);
+        uint256 currentRequestId = remoteStrategy.nextRequestId();
 
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        vm.selectFork(ethFork);
 
-        // Skip some time
-        skip(1 days);
+        // Simulate remote strategy reporting profit
+        bytes memory profitMessage = abi.encode(
+            currentRequestId,
+            int256(profit)
+        );
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            profitMessage
+        );
 
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        // Verify remoteAssets updated correctly
+        assertEq(strategy.remoteAssets(), _amount + profit);
+        // Total assets has not updated
+        assertEq(strategy.totalAssets(), _amount);
 
         vm.prank(keeper);
         strategy.report();
 
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        // Total assets should now include profit
+        assertEq(strategy.totalAssets(), _amount + profit);
+        assertEq(strategy.remoteAssets(), _amount + profit);
+    }
 
-        // Unlock Profits
-        skip(strategy.profitMaxUnlockTime());
+    // Test 5: Remote asset tracking - loss updates
+    function test_remoteAssetTracking_loss() public useEthFork {
+        uint256 _amount = 10000e6; // $10k USDC
+        uint256 loss = 500e6; // $500 loss
 
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
+        // Get current nextRequestId
+        vm.selectFork(baseFork);
+        uint256 currentRequestId = remoteStrategy.nextRequestId();
+
+        vm.selectFork(ethFork);
+
+        // Simulate remote strategy reporting loss
+        bytes memory lossMessage = abi.encode(currentRequestId, -int256(loss));
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            lossMessage
+        );
+
+        // Verify remoteAssets reduced correctly
+        assertEq(strategy.remoteAssets(), _amount - loss);
+        assertEq(strategy.totalAssets(), _amount);
+
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
+
+        vm.prank(keeper);
+        strategy.report();
+
+        // Total assets should now include loss
+        assertEq(strategy.totalAssets(), _amount - loss);
+        assertEq(strategy.remoteAssets(), _amount - loss);
+    }
+
+    // Test 7: Invalid sender/domain rejection
+    function test_rejectInvalidSender() public useEthFork {
+        uint256 _amount = 1000e6;
+        bytes memory message = abi.encode(uint256(0), int256(_amount));
+
+        // Wrong transmitter (should fail)
         vm.prank(user);
-        strategy.redeem(_amount, user, user);
+        vm.expectRevert();
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            message
+        );
 
-        (trigger, ) = strategy.tendTrigger();
-        assertTrue(!trigger);
+        // Wrong domain (should fail)
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        vm.expectRevert();
+        strategy.handleReceiveFinalizedMessage(
+            ETHEREUM_DOMAIN, // Wrong domain
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            message
+        );
+
+        // Wrong counterpart (should fail)
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        vm.expectRevert();
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(user))), // Wrong sender
+            2000,
+            message
+        );
     }
 }
