@@ -49,7 +49,6 @@ contract OracleTest is Setup {
     }
 
     function test_oracle(uint256 _amount, uint16 _percentChange) public {
-
         vm.selectFork(ethFork);
         /** 
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);

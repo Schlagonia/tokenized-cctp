@@ -288,9 +288,10 @@ contract RemoteStrategyTests is Setup {
             address(remoteStrategy)
         );
 
-        // Pull half the shares
+        // Pull half of the assets (convert shares to assets)
+        uint256 halfAssets = vault.convertToAssets(sharesInVault / 2);
         vm.prank(keeper);
-        remoteStrategy.pullFunds(sharesInVault / 2);
+        remoteStrategy.pullFunds(halfAssets);
 
         uint256 looseBalanceAfter = USDC_BASE.balanceOf(
             address(remoteStrategy)
@@ -306,7 +307,7 @@ contract RemoteStrategyTests is Setup {
 
         vm.prank(user);
         vm.expectRevert("NotKeeper");
-        remoteStrategy.pullFunds(100);
+        remoteStrategy.pullFunds(100e6); // Amount in USDC
 
         // Keepers should succeed
         vm.prank(keeper);

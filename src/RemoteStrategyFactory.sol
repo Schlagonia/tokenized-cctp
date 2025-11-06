@@ -57,12 +57,12 @@ contract RemoteStrategyFactory is Governance, BaseCCTP {
             type(RemoteStrategy).creationCode,
             abi.encode(
                 USDC,
-                _vault,
                 governance,
                 address(TOKEN_MESSENGER),
                 address(MESSAGE_TRANSMITTER),
                 _remoteDomain,
-                _remoteCounterpart
+                _remoteCounterpart,
+                _vault
             )
         );
 
