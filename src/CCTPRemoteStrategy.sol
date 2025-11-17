@@ -60,12 +60,9 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
             "InvalidFinalityThreshold"
         );
 
-        (uint256 requestId, int256 amount) = abi.decode(
-            _messageBody,
-            (uint256, int256)
-        );
+        int256 amount = abi.decode(_messageBody, (int256));
 
-        _handleIncomingMessage(requestId, amount);
+        _handleIncomingMessage(amount);
 
         return true;
     }

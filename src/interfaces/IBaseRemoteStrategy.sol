@@ -35,18 +35,9 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @return The vault address
     function vault() external view returns (address);
 
-    /// @notice Counter for ordering cross-chain messages
-    /// @return The next request ID
-    function nextRequestId() external view returns (uint256);
-
     /// @notice Tracks assets for profit/loss calculations
     /// @return The tracked assets amount
     function trackedAssets() external view returns (uint256);
-
-    /// @notice Mapping to prevent message replay and enforce ordering
-    /// @param requestId The request ID to check
-    /// @return Whether the message has been processed
-    function messageProcessed(uint256 requestId) external view returns (bool);
 
     /// @notice Addresses authorized to perform keeper operations
     /// @param keeper The address to check

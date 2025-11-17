@@ -15,14 +15,8 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Address allowed to deposit into this strategy
     address public immutable DEPOSITER;
 
-    /// @notice Counter for ordering cross-chain messages
-    uint256 public nextRequestId;
-
     /// @notice Tracks assets deployed on remote chain
     uint256 public remoteAssets;
-
-    /// @notice Mapping to prevent message replay and enforce ordering
-    mapping(uint256 => bool) public messageProcessed;
 
     constructor(
         address _asset,
@@ -38,10 +32,6 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         REMOTE_ID = _remoteId;
         REMOTE_COUNTERPART = _remoteCounterpart;
         DEPOSITER = _depositer;
-
-        // Start ID's at 1 so ordered checks work
-        nextRequestId = 1;
-        messageProcessed[0] = true;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -81,29 +71,12 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     }
 
     /// @notice Handles incoming cross-chain messages
-    /// @dev Validates message ordering and updates remote asset accounting
-    /// @param requestId The unique identifier for this message
     /// @param amount Signed integer representing asset change (positive = profit, negative = withdrawal)
-    function _handleIncomingMessage(
-        uint256 requestId,
-        int256 amount
-    ) internal virtual {
-        require(
-            !messageProcessed[requestId],
-            "BaseCCTP: Message already processed"
-        );
-        require(
-            messageProcessed[requestId - 1],
-            "BaseCCTP: Invalid request ID"
-        );
-
+    function _handleIncomingMessage(int256 amount) internal virtual {
         // Update remote assets accounting
         // Positive amount = profit reported
         // Negative amount = withdrawal fulfilled or loss reported
-        remoteAssets = _toUint256(int256(remoteAssets) + amount);
-
-        // Mark message as processed
-        messageProcessed[requestId] = true;
+        remoteAssets = _toUint256(_toInt256(remoteAssets) + amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -113,9 +86,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Deploy funds to remote chain
     /// @dev Increments request ID, calls bridge implementation, updates remote assets
     function _deployFunds(uint256 _amount) internal virtual override {
-        bytes memory data = abi.encode(nextRequestId, _toInt256(_amount));
-
-        nextRequestId++;
+        bytes memory data = abi.encode(_toInt256(_amount));
 
         uint256 bridged = _bridgeAssets(_amount, data);
 

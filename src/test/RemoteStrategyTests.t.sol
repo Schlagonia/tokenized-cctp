@@ -12,15 +12,9 @@ contract RemoteStrategyTests is Setup {
     }
 
     function simulateBridgeDeposit(uint256 _amount) public {
-        vm.selectFork(ethFork);
-        uint256 currentRequestId = strategy.nextRequestId();
-
         vm.selectFork(baseFork);
         airdropUSDC(address(remoteStrategy), _amount);
-        bytes memory messageBody = abi.encode(
-            currentRequestId,
-            int256(_amount)
-        );
+        bytes memory messageBody = abi.encode(int256(_amount));
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
             ETHEREUM_DOMAIN,
@@ -84,7 +78,7 @@ contract RemoteStrategyTests is Setup {
         airdropUSDC(address(remoteStrategy), amount);
 
         // Simulate CCTP message
-        bytes memory messageBody = abi.encode(uint256(1), int256(amount));
+        bytes memory messageBody = abi.encode(int256(amount));
 
         uint256 vaultBalanceBefore = vault.balanceOf(address(remoteStrategy));
 
@@ -108,7 +102,7 @@ contract RemoteStrategyTests is Setup {
         // Mock vault max deposit (would need actual vault to test properly)
         // This test assumes vault has deposit limits
 
-        bytes memory messageBody = abi.encode(uint256(1), int256(amount));
+        bytes memory messageBody = abi.encode(int256(amount));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
@@ -117,13 +111,10 @@ contract RemoteStrategyTests is Setup {
             2000, // FINALITY_THRESHOLD_FINALIZED
             messageBody
         );
-
-        // Should handle gracefully even if vault has limits
-        assertTrue(true); // Placeholder - actual test depends on vault implementation
     }
 
     function test_rejectInvalidMainStrategy() public useBaseFork {
-        bytes memory messageBody = abi.encode(uint256(1), int256(1000e6));
+        bytes memory messageBody = abi.encode(int256(1000e6));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         vm.expectRevert("InvalidSender");
@@ -147,14 +138,9 @@ contract RemoteStrategyTests is Setup {
         vm.prank(keeper);
         remoteStrategy.pushFunds(amount);
 
-        uint256 initialRequestId = remoteStrategy.nextRequestId();
-
         // Send exposure report
         vm.prank(keeper);
         remoteStrategy.sendReport();
-
-        // Request ID should increment
-        assertEq(remoteStrategy.nextRequestId(), initialRequestId + 1);
     }
 
     function test_exposureReportCalculation() public useBaseFork {
@@ -375,50 +361,5 @@ contract RemoteStrategyTests is Setup {
         // Can't directly access totalAssets() since it's internal, but it's used in reports
         vm.prank(keeper);
         remoteStrategy.sendReport(); // This uses totalAssets internally
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            MESSAGE ORDERING
-    //////////////////////////////////////////////////////////////*/
-
-    function test_messageOrderingEnforced() public useBaseFork {
-        // Try to process message with wrong request ID
-        bytes memory messageBody = abi.encode(uint256(99), int256(1000e6));
-
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        vm.expectRevert("BaseRemoteStrategy: Invalid request ID");
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000, // FINALITY_THRESHOLD_FINALIZED
-            messageBody
-        );
-    }
-
-    function test_preventDuplicateMessageProcessing() public useBaseFork {
-        uint256 amount = 1000e6;
-        airdropUSDC(address(remoteStrategy), amount);
-
-        uint256 requestId = remoteStrategy.nextRequestId();
-        bytes memory messageBody = abi.encode(requestId, int256(amount));
-
-        // Process once
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000, // FINALITY_THRESHOLD_FINALIZED
-            messageBody
-        );
-
-        // Try to process again
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        vm.expectRevert("BaseRemoteStrategy: Message already processed");
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000, // FINALITY_THRESHOLD_FINALIZED
-            messageBody
-        );
     }
 }

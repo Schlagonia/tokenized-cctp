@@ -18,7 +18,6 @@ contract EmergencyTests is Setup {
     function test_emergencyShutdownAndRecovery() public useEthFork {
         // Combines shutdown with remote funds and partial recovery scenarios
         uint256 depositAmount = 100000e6;
-        uint256 currentRequestId = 1;
 
         // Setup and deposit
         mintAndDepositIntoStrategy(strategy, depositor, depositAmount);
@@ -26,10 +25,7 @@ contract EmergencyTests is Setup {
         uint256 remoteProfit = 100e6;
 
         // Simulate remote assets being reported
-        bytes memory reportMessage = abi.encode(
-            currentRequestId,
-            int256(remoteProfit)
-        );
+        bytes memory reportMessage = abi.encode(int256(remoteProfit));
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -50,10 +46,7 @@ contract EmergencyTests is Setup {
         uint256 recoveredAmount = 40000e6;
         airdropUSDC(address(strategy), recoveredAmount);
 
-        bytes memory recoveryMessage = abi.encode(
-            currentRequestId + 1,
-            -int256(recoveredAmount)
-        );
+        bytes memory recoveryMessage = abi.encode(-int256(recoveredAmount));
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -91,71 +84,8 @@ contract EmergencyTests is Setup {
                         CCTP MESSAGE VALIDATION
     //////////////////////////////////////////////////////////////*/
 
-    function test_messageReplayAttack() public useEthFork {
-        // Valid message with current request ID
-        uint256 requestId = strategy.nextRequestId();
-
-        mintAndDepositIntoStrategy(strategy, depositor, 10000e6);
-
-        bytes memory messageBody = abi.encode(requestId, int256(10000e6));
-
-        // Process once
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            messageBody
-        );
-
-        uint256 assetsAfterFirst = strategy.remoteAssets();
-
-        // Try replay attack - should revert
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        vm.expectRevert();
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            messageBody
-        );
-
-        // Assets unchanged
-        assertEq(strategy.remoteAssets(), assetsAfterFirst);
-    }
-
-    function test_outOfOrderMessages() public useEthFork {
-        mintAndDepositIntoStrategy(strategy, depositor, 10000e6);
-
-        // Try to process message with future request ID
-        uint256 currentId = strategy.nextRequestId();
-        bytes memory futureMessage = abi.encode(currentId + 10, int256(5000e6));
-
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        vm.expectRevert();
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            futureMessage
-        );
-
-        // Try with old request ID (0 is always marked as processed)
-        bytes memory pastMessage = abi.encode(uint256(0), int256(5000e6));
-
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        vm.expectRevert();
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            pastMessage
-        );
-    }
-
     function test_invalidSenderValidation() public useEthFork {
-        uint256 requestId = strategy.nextRequestId();
-        bytes memory messageBody = abi.encode(requestId, int256(1000e6));
+        bytes memory messageBody = abi.encode(int256(1000e6));
 
         // Wrong transmitter
         vm.prank(user);
@@ -165,17 +95,6 @@ contract EmergencyTests is Setup {
             bytes32(uint256(uint160(address(remoteStrategy)))),
             2000,
             messageBody
-        );
-
-        // Malformed message
-        bytes memory badMessage = abi.encode("invalid", "data");
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        vm.expectRevert();
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            badMessage
         );
 
         // Empty message
@@ -258,9 +177,7 @@ contract EmergencyTests is Setup {
         // Simulate having funds in remote strategy
         airdropUSDC(address(remoteStrategy), 20000e6);
 
-        // Get request ID for proper message handling
-        uint256 requestId = remoteStrategy.nextRequestId();
-        bytes memory depositMessage = abi.encode(requestId, int256(20000e6));
+        bytes memory depositMessage = abi.encode(int256(20000e6));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(

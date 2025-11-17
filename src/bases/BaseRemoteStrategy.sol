@@ -18,14 +18,8 @@ abstract contract BaseRemoteStrategy is Governance {
     /// @notice The asset token for this strategy
     ERC20 public immutable asset;
 
-    /// @notice Counter for ordering cross-chain messages
-    uint256 public nextRequestId;
-
     /// @notice Tracks assets for profit/loss calculations
     uint256 public trackedAssets;
-
-    /// @notice Mapping to prevent message replay and enforce ordering
-    mapping(uint256 => bool) public messageProcessed;
 
     /// @notice Addresses authorized to perform keeper operations
     mapping(address => bool) public keepers;
@@ -52,10 +46,6 @@ abstract contract BaseRemoteStrategy is Governance {
         asset = ERC20(_asset);
         REMOTE_ID = _remoteId;
         REMOTE_COUNTERPART = _remoteCounterpart;
-
-        // Start ID's at 1 so ordered checks work
-        nextRequestId = 1;
-        messageProcessed[0] = true;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -74,9 +64,7 @@ abstract contract BaseRemoteStrategy is Governance {
         uint256 newTotalAssets = totalAssets();
         reportProfit = _toInt256(newTotalAssets) - _toInt256(trackedAssets);
 
-        bytes memory messageBody = abi.encode(nextRequestId, reportProfit);
-
-        nextRequestId++;
+        bytes memory messageBody = abi.encode(reportProfit);
 
         trackedAssets = newTotalAssets;
 
@@ -107,12 +95,7 @@ abstract contract BaseRemoteStrategy is Governance {
         uint256 balance = asset.balanceOf(address(this));
         require(balance >= _amount, "not enough");
 
-        bytes memory messageBody = abi.encode(
-            nextRequestId,
-            -_toInt256(_amount)
-        );
-
-        nextRequestId++;
+        bytes memory messageBody = abi.encode(-_toInt256(_amount));
 
         uint256 bridged = _bridgeAssets(_amount, messageBody);
 
@@ -149,24 +132,10 @@ abstract contract BaseRemoteStrategy is Governance {
 
     /// @notice Handle incoming deposit from origin chain
     /// @dev Validates message ordering, deposits to vault, updates tracking
-    /// @param requestId The unique identifier for this message
     /// @param _amount Amount of assets received (must be positive)
-    function _handleIncomingMessage(
-        uint256 requestId,
-        int256 _amount
-    ) internal virtual {
+    function _handleIncomingMessage(int256 _amount) internal virtual {
         require(_amount > 0, "InvalidAmount");
         uint256 amount = _toUint256(_amount);
-
-        require(
-            !messageProcessed[requestId],
-            "BaseRemoteStrategy: Message already processed"
-        );
-        require(
-            messageProcessed[requestId - 1],
-            "BaseRemoteStrategy: Invalid request ID"
-        );
-
         require(
             asset.balanceOf(address(this)) >= amount,
             "InsufficientBalance"
@@ -174,9 +143,6 @@ abstract contract BaseRemoteStrategy is Governance {
 
         // Add all added funds to tracked assets
         trackedAssets = _toUint256(_toInt256(trackedAssets) + _amount);
-
-        // Mark message as processed
-        messageProcessed[requestId] = true;
 
         _pushFunds(amount);
     }

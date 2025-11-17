@@ -23,8 +23,6 @@ contract OperationTest is Setup {
         // Generic cross-chain properties
         assertEq(strategy.DEPOSITER(), depositor);
         assertEq(strategy.REMOTE_COUNTERPART(), address(remoteStrategy));
-        // nextRequestId starts at 0
-        assertTrue(strategy.nextRequestId() >= 0);
         assertEq(strategy.remoteAssets(), 0);
     }
 
@@ -73,41 +71,6 @@ contract OperationTest is Setup {
         assertEq(strategy.totalAssets(), _amount);
     }
 
-    // Test 3: Message ordering - only accepts messages with correct requestId
-    function test_messageOrdering() public useEthFork {
-        uint256 _amount = 1000e6; // $1000 USDC
-
-        // Get current nextRequestId (might not be 0 after deployment)
-        uint256 currentRequestId = strategy.nextRequestId();
-
-        // Process message with correct requestId (should succeed)
-        bytes memory correctMessage = abi.encode(
-            currentRequestId,
-            int256(_amount)
-        );
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            correctMessage
-        );
-
-        // Verify message processed
-        assertEq(strategy.messageProcessed(currentRequestId), true);
-        assertEq(strategy.remoteAssets(), _amount);
-
-        // Try to replay same message (should fail)
-        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
-        vm.expectRevert();
-        strategy.handleReceiveFinalizedMessage(
-            BASE_DOMAIN,
-            bytes32(uint256(uint160(address(remoteStrategy)))),
-            2000,
-            correctMessage
-        );
-    }
-
     // Test 4: Remote asset tracking - profit updates
     function test_remoteAssetTracking_profit() public useEthFork {
         uint256 _amount = 10000e6; // $10k USDC
@@ -115,17 +78,10 @@ contract OperationTest is Setup {
 
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
-        // Get current nextRequestId
-        vm.selectFork(baseFork);
-        uint256 currentRequestId = remoteStrategy.nextRequestId();
-
         vm.selectFork(ethFork);
 
         // Simulate remote strategy reporting profit
-        bytes memory profitMessage = abi.encode(
-            currentRequestId,
-            int256(profit)
-        );
+        bytes memory profitMessage = abi.encode(int256(profit));
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -154,14 +110,10 @@ contract OperationTest is Setup {
 
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
-        // Get current nextRequestId
-        vm.selectFork(baseFork);
-        uint256 currentRequestId = remoteStrategy.nextRequestId();
-
         vm.selectFork(ethFork);
 
         // Simulate remote strategy reporting loss
-        bytes memory lossMessage = abi.encode(currentRequestId, -int256(loss));
+        bytes memory lossMessage = abi.encode(-int256(loss));
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -188,7 +140,7 @@ contract OperationTest is Setup {
     // Test 7: Invalid sender/domain rejection
     function test_rejectInvalidSender() public useEthFork {
         uint256 _amount = 1000e6;
-        bytes memory message = abi.encode(uint256(0), int256(_amount));
+        bytes memory message = abi.encode(int256(_amount));
 
         // Wrong transmitter (should fail)
         vm.prank(user);

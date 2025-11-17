@@ -18,16 +18,7 @@ interface IBaseCrossChain is IBaseHealthCheck {
     /// @return The depositer address
     function DEPOSITER() external view returns (address);
 
-    /// @notice Counter for ordering cross-chain messages
-    /// @return The next request ID
-    function nextRequestId() external view returns (uint256);
-
     /// @notice Tracks assets deployed on remote chain
     /// @return The amount of remote assets
     function remoteAssets() external view returns (uint256);
-
-    /// @notice Mapping to prevent message replay and enforce ordering
-    /// @param requestId The request ID to check
-    /// @return Whether the message has been processed
-    function messageProcessed(uint256 requestId) external view returns (bool);
 }

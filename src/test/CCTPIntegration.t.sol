@@ -37,10 +37,7 @@ contract CCTPIntegrationTest is Setup {
         airdropUSDC(address(remoteStrategy), depositAmount);
 
         // Simulate CCTP message
-        bytes memory messageBody = abi.encode(
-            uint256(1),
-            int256(depositAmount)
-        );
+        bytes memory messageBody = abi.encode(int256(depositAmount));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
@@ -64,7 +61,7 @@ contract CCTPIntegrationTest is Setup {
         // Step 6: Process report on Ethereum
         vm.selectFork(ethFork);
 
-        bytes memory reportMessage = abi.encode(uint256(1), reportedAmount);
+        bytes memory reportMessage = abi.encode(reportedAmount);
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -115,10 +112,7 @@ contract CCTPIntegrationTest is Setup {
 
         vm.selectFork(ethFork);
         airdropUSDC(address(strategy), withdrawAmount);
-        bytes memory messageBody = abi.encode(
-            uint256(1),
-            -int256(withdrawAmount)
-        );
+        bytes memory messageBody = abi.encode(-int256(withdrawAmount));
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -181,10 +175,7 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with profit
-        bytes memory reportMessage = abi.encode(
-            uint256(1),
-            int256(reportedProfit)
-        );
+        bytes memory reportMessage = abi.encode(int256(reportedProfit));
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -229,10 +220,7 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with loss
-        bytes memory reportMessage = abi.encode(
-            uint256(1),
-            int256(reportedProfit)
-        );
+        bytes memory reportMessage = abi.encode(int256(reportedProfit));
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -300,10 +288,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Report profit on Ethereum
         vm.selectFork(ethFork);
-        bytes memory reportMessage = abi.encode(
-            uint256(1),
-            int256(reportedProfit)
-        );
+        bytes memory reportMessage = abi.encode(int256(reportedProfit));
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -328,14 +313,13 @@ contract CCTPIntegrationTest is Setup {
         // Deposit on Ethereum
         vm.selectFork(ethFork);
 
-        uint256 nexMessageId = strategy.nextRequestId();
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
         // Process on Base
         vm.selectFork(baseFork);
         airdropUSDC(address(remoteStrategy), _amount);
 
-        bytes memory messageBody = abi.encode(nexMessageId, int256(_amount));
+        bytes memory messageBody = abi.encode(int256(_amount));
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
             ETHEREUM_DOMAIN,
