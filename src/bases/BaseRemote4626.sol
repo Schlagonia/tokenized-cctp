@@ -2,7 +2,8 @@
 pragma solidity ^0.8.18;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {BaseRemoteStrategy, ERC20} from "./BaseRemoteStrategy.sol";
+import {BaseRemoteStrategy} from "./BaseRemoteStrategy.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -19,16 +20,20 @@ abstract contract BaseRemote4626 is BaseRemoteStrategy {
         address _remoteCounterpart,
         address _vault
     ) BaseRemoteStrategy(_asset, _governance, _remoteId, _remoteCounterpart) {
-        require(_vault != address(0), "ZeroAddress");
         vault = IERC4626(_vault);
+        require(vault.asset() == _asset, "wrong vault");
 
-        ERC20(_asset).forceApprove(_vault, type(uint256).max);
+        asset.forceApprove(_vault, type(uint256).max);
     }
 
     function _pushFunds(
         uint256 _amount
     ) internal virtual override returns (uint256) {
-        return vault.deposit(_amount, address(this));
+        try vault.deposit(_amount, address(this)) returns (uint256) {
+            return _amount;
+        } catch {
+            return 0;
+        }
     }
 
     function _pullFunds(

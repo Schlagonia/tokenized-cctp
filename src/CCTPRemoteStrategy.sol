@@ -30,7 +30,7 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
         BaseCCTP(_asset, _tokenMessenger, _messageTransmitter)
     {
         // Approve token messenger for CCTP bridging
-        ERC20(_asset).forceApprove(_tokenMessenger, type(uint256).max);
+        asset.forceApprove(_tokenMessenger, type(uint256).max);
     }
 
     /*//////////////////////////////////////////////////////////////

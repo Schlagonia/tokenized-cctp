@@ -72,15 +72,15 @@ abstract contract BaseRemoteStrategy is Governance {
         returns (int256 reportProfit)
     {
         uint256 newTotalAssets = totalAssets();
-        reportProfit = int256(newTotalAssets) - int256(trackedAssets);
+        reportProfit = _toInt256(newTotalAssets) - _toInt256(trackedAssets);
 
         bytes memory messageBody = abi.encode(nextRequestId, reportProfit);
 
         nextRequestId++;
 
-        _bridgeMessage(messageBody);
-
         trackedAssets = newTotalAssets;
+
+        _bridgeMessage(messageBody);
     }
 
     /// @notice Process withdrawal request from origin chain
@@ -107,7 +107,10 @@ abstract contract BaseRemoteStrategy is Governance {
         uint256 balance = asset.balanceOf(address(this));
         require(balance >= _amount, "not enough");
 
-        bytes memory messageBody = abi.encode(nextRequestId, -int256(_amount));
+        bytes memory messageBody = abi.encode(
+            nextRequestId,
+            -_toInt256(_amount)
+        );
 
         nextRequestId++;
 
@@ -153,7 +156,7 @@ abstract contract BaseRemoteStrategy is Governance {
         int256 _amount
     ) internal virtual {
         require(_amount > 0, "InvalidAmount");
-        uint256 amount = uint256(_amount);
+        uint256 amount = _toUint256(_amount);
 
         require(
             !messageProcessed[requestId],
@@ -169,13 +172,45 @@ abstract contract BaseRemoteStrategy is Governance {
             "InsufficientBalance"
         );
 
-        _pushFunds(amount);
-
         // Add all added funds to tracked assets
-        trackedAssets = uint256(int256(trackedAssets) + _amount);
+        trackedAssets = _toUint256(_toInt256(trackedAssets) + _amount);
 
         // Mark message as processed
         messageProcessed[requestId] = true;
+
+        _pushFunds(amount);
+    }
+
+    /**
+     * @dev Converts a signed int256 into an unsigned uint256.
+     *
+     * Requirements:
+     *
+     * - input must be greater than or equal to 0.
+     *
+     * _Available since v3.0._
+     */
+    function _toUint256(int256 value) internal pure returns (uint256) {
+        require(value >= 0, "must be positive");
+        return uint256(value);
+    }
+
+    /**
+     * @dev Converts an unsigned uint256 into a signed int256.
+     *
+     * Requirements:
+     *
+     * - input must be less than or equal to maxInt256.
+     *
+     * _Available since v3.0._
+     */
+    function _toInt256(uint256 value) internal pure returns (int256) {
+        // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
+        require(
+            value <= uint256(type(int256).max),
+            "does not fit in an int256"
+        );
+        return int256(value);
     }
 
     /*//////////////////////////////////////////////////////////////

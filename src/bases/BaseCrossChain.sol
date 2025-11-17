@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {BaseHealthCheck, ERC20, BaseStrategy} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol";
+import {BaseHealthCheck} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol";
 
 /// @notice Base contract for cross-chain strategies on the origin chain
 /// @dev Provides message ordering, remote asset tracking, and abstract bridging interface
@@ -100,7 +100,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         // Update remote assets accounting
         // Positive amount = profit reported
         // Negative amount = withdrawal fulfilled or loss reported
-        remoteAssets = uint256(int256(remoteAssets) + amount);
+        remoteAssets = _toUint256(int256(remoteAssets) + amount);
 
         // Mark message as processed
         messageProcessed[requestId] = true;
@@ -113,7 +113,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Deploy funds to remote chain
     /// @dev Increments request ID, calls bridge implementation, updates remote assets
     function _deployFunds(uint256 _amount) internal virtual override {
-        bytes memory data = abi.encode(nextRequestId, int256(_amount));
+        bytes memory data = abi.encode(nextRequestId, _toInt256(_amount));
 
         nextRequestId++;
 
@@ -137,4 +137,36 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         uint256 amount,
         bytes memory data
     ) internal virtual returns (uint256);
+
+    /**
+     * @dev Converts a signed int256 into an unsigned uint256.
+     *
+     * Requirements:
+     *
+     * - input must be greater than or equal to 0.
+     *
+     * _Available since v3.0._
+     */
+    function _toUint256(int256 value) internal pure returns (uint256) {
+        require(value >= 0, "must be positive");
+        return uint256(value);
+    }
+
+    /**
+     * @dev Converts an unsigned uint256 into a signed int256.
+     *
+     * Requirements:
+     *
+     * - input must be less than or equal to maxInt256.
+     *
+     * _Available since v3.0._
+     */
+    function _toInt256(uint256 value) internal pure returns (int256) {
+        // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
+        require(
+            value <= uint256(type(int256).max),
+            "does not fit in an int256"
+        );
+        return int256(value);
+    }
 }

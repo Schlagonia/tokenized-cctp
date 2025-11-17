@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import {CCTPStrategy as Strategy, ERC20} from "./CCTPStrategy.sol";
+import {CCTPStrategy as Strategy} from "./CCTPStrategy.sol";
 import {IStrategyInterface} from "./interfaces/IStrategyInterface.sol";
 import {RemoteStrategyFactory} from "./RemoteStrategyFactory.sol";
 import {CREATE} from "./libraries/CREATE.sol";
