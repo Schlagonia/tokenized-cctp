@@ -3,10 +3,11 @@ pragma solidity ^0.8.18;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Governance} from "@periphery/utils/Governance.sol";
+import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 
 /// @notice Base contract for cross-chain strategies on remote chains
 /// @dev Provides keeper management, ERC4626 vault interaction, and abstract bridging interface
-abstract contract BaseRemoteStrategy is Governance {
+abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     event UpdatedKeeper(address indexed keeper, bool indexed status);
 
     /// @notice Remote chain identifier for the origin chain
@@ -124,6 +125,10 @@ abstract contract BaseRemoteStrategy is Governance {
         keepers[_address] = _allowed;
 
         emit UpdatedKeeper(_address, _allowed);
+    }
+
+    function setAuction(address _auction) external onlyGovernance {
+        _setAuction(_auction);
     }
 
     /*//////////////////////////////////////////////////////////////
