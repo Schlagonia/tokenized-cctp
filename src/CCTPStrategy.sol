@@ -90,4 +90,12 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
 
         return true;
     }
+
+    function rescue(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) external onlyManagement {
+        ERC20(_token).safeTransfer(_to, _amount);
+    }
 }
