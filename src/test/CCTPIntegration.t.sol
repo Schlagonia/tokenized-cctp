@@ -56,7 +56,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Step 5: Send exposure report back
         vm.prank(keeper);
-        int256 reportedAmount = remoteStrategy.sendReport();
+        int256 reportedAmount = remoteStrategy.report();
 
         // Step 6: Process report on Ethereum
         vm.selectFork(ethFork);
@@ -73,7 +73,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Verify accounting
         assertEq(
-            strategy.remoteAssets(),
+            calculateRemoteAssets(strategy),
             uint256(int256(depositAmount) + reportedAmount)
         );
         assertApproxEqAbs(
@@ -101,7 +101,7 @@ contract CCTPIntegrationTest is Setup {
         remoteStrategy.processWithdrawal(withdrawAmount);
 
         assertEq(
-            remoteStrategy.trackedAssets(),
+            remoteStrategy.deployedAssets(),
             depositAmount - withdrawAmount
         );
         assertApproxEqAbs(
@@ -121,7 +121,10 @@ contract CCTPIntegrationTest is Setup {
             messageBody
         );
 
-        assertEq(strategy.remoteAssets(), depositAmount - withdrawAmount);
+        assertEq(
+            calculateRemoteAssets(strategy),
+            depositAmount - withdrawAmount
+        );
         assertEq(strategy.totalAssets(), depositAmount);
         uint256 sharesBefore = strategy.balanceOf(depositor);
         uint256 userBalanceBefore = USDC_ETHEREUM.balanceOf(depositor);
@@ -134,7 +137,10 @@ contract CCTPIntegrationTest is Setup {
             depositor
         );
 
-        assertEq(strategy.remoteAssets(), depositAmount - withdrawAmount);
+        assertEq(
+            calculateRemoteAssets(strategy),
+            depositAmount - withdrawAmount
+        );
         assertEq(strategy.totalAssets(), depositAmount - withdrawAmount);
 
         assertApproxEqAbs(withdrawn, withdrawAmount, 100);
@@ -165,7 +171,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Send exposure report
         vm.prank(keeper);
-        int256 reportedProfit = remoteStrategy.sendReport();
+        int256 reportedProfit = remoteStrategy.report();
 
         assertApproxEqAbs(uint256(reportedProfit), expectedProfit, 1);
 
@@ -210,7 +216,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Send exposure report with loss
         vm.prank(keeper);
-        int256 reportedProfit = remoteStrategy.sendReport();
+        int256 reportedProfit = remoteStrategy.report();
 
         assertApproxEqAbs(uint256(-reportedProfit), lossAmount, 10);
 
@@ -284,7 +290,7 @@ contract CCTPIntegrationTest is Setup {
         skip(1 days);
 
         vm.prank(keeper);
-        int256 reportedProfit = remoteStrategy.sendReport();
+        int256 reportedProfit = remoteStrategy.report();
 
         // Report profit on Ethereum
         vm.selectFork(ethFork);

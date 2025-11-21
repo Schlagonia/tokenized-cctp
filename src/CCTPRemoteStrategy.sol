@@ -34,58 +34,19 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        CCTP MESSAGE HANDLING
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Handle incoming CCTP message
-    /// @dev Validates CCTP-specific requirements and routes to _receiveMessage
-    function handleReceiveFinalizedMessage(
-        uint32 _sourceDomain,
-        bytes32 _sender,
-        uint32 _finalityThresholdExecuted,
-        bytes calldata _messageBody
-    ) external virtual override returns (bool) {
-        require(
-            msg.sender == address(MESSAGE_TRANSMITTER),
-            "InvalidTransmitter"
-        );
-        require(_sourceDomain == uint32(uint256(REMOTE_ID)), "InvalidDomain");
-        require(
-            _sender == _addressToBytes32(REMOTE_COUNTERPART),
-            "InvalidSender"
-        );
-        require(_messageBody.length > 0, "EmptyMessage");
-        require(
-            _finalityThresholdExecuted >= FINALITY_THRESHOLD_FINALIZED,
-            "InvalidFinalityThreshold"
-        );
-
-        int256 amount = abi.decode(_messageBody, (int256));
-
-        _handleIncomingMessage(amount);
-
-        return true;
-    }
-
-    /*//////////////////////////////////////////////////////////////
                 BASEREMOTESTRATEGY IMPLEMENTATIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Bridge assets back to origin chain via CCTP
-    /// @dev Uses depositForBurnWithHook with encoded data
-    function _bridgeAssets(
-        uint256 amount,
-        bytes memory data
-    ) internal override returns (uint256) {
-        TOKEN_MESSENGER.depositForBurnWithHook(
+    function _bridgeAssets(uint256 amount) internal override returns (uint256) {
+        TOKEN_MESSENGER.depositForBurn(
             amount,
             uint32(uint256(REMOTE_ID)),
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0),
             0,
-            FINALITY_THRESHOLD_FINALIZED,
-            data
+            FINALITY_THRESHOLD_FINALIZED
         );
 
         return amount;
@@ -101,6 +62,19 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
             FINALITY_THRESHOLD_FINALIZED,
             data
         );
+    }
+
+    /// @notice Handle incoming CCTP message (required by IMessageHandlerV2)
+    /// @dev Remote strategies typically don't receive messages, but interface requires implementation
+    function handleReceiveFinalizedMessage(
+        uint32, // _sourceDomain
+        bytes32, // _sender
+        uint32, // _finalityThresholdExecuted
+        bytes calldata // _messageBody
+    ) external virtual override returns (bool) {
+        // Remote strategies don't process incoming messages
+        // Only origin strategy receives messages from remote
+        return false;
     }
 
     function rescue(

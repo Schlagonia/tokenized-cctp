@@ -35,7 +35,7 @@ contract EmergencyTests is Setup {
             reportMessage
         );
 
-        assertEq(strategy.remoteAssets(), depositAmount + remoteProfit);
+        assertEq(calculateRemoteAssets(strategy), depositAmount + remoteProfit);
 
         // Trigger emergency shutdown
         vm.prank(emergencyAdmin);
@@ -177,21 +177,18 @@ contract EmergencyTests is Setup {
         // Simulate having funds in remote strategy
         airdropUSDC(address(remoteStrategy), 20000e6);
 
-        bytes memory depositMessage = abi.encode(int256(20000e6));
-
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000,
-            depositMessage
-        );
+        // In new architecture, keeper pushes funds to vault
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(20000e6);
 
         // Keeper operations should still work
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(10000e6);
 
+        // Advance time as report requires block.timestamp > lastReport
+        skip(1);
+
         vm.prank(keeper);
-        remoteStrategy.sendReport();
+        remoteStrategy.report();
     }
 }

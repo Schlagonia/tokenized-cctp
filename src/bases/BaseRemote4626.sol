@@ -29,11 +29,8 @@ abstract contract BaseRemote4626 is BaseRemoteStrategy {
     function _pushFunds(
         uint256 _amount
     ) internal virtual override returns (uint256) {
-        try vault.deposit(_amount, address(this)) returns (uint256) {
-            return _amount;
-        } catch {
-            return 0;
-        }
+        vault.deposit(_amount, address(this));
+        return _amount;
     }
 
     function _pullFunds(
@@ -50,13 +47,8 @@ abstract contract BaseRemote4626 is BaseRemoteStrategy {
             );
     }
 
-    /// @notice Calculate total assets held (vault + loose)
-    function totalAssets() public view override returns (uint256) {
-        return vaultAssets() + asset.balanceOf(address(this));
-    }
-
     /// @notice Calculate assets deployed in vault
-    function vaultAssets() public view returns (uint256) {
+    function valueOfDeployedAssets() public view override returns (uint256) {
         return vault.convertToAssets(vault.balanceOf(address(this)));
     }
 }
