@@ -18,7 +18,7 @@ interface IBaseCrossChain is IBaseHealthCheck {
     /// @return The depositer address
     function DEPOSITER() external view returns (address);
 
-    /// @notice Tracks assets deployed on remote chain
-    /// @return The amount of remote assets
-    function remoteAssets() external view returns (uint256);
+    /// @notice Tracks unreported profit/loss
+    /// @return The unreported profit/loss
+    function unreportedProfit() external view returns (int256);
 }

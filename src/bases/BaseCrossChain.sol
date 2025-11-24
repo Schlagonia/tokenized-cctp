@@ -15,8 +15,8 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Address allowed to deposit into this strategy
     address public immutable DEPOSITER;
 
-    /// @notice Tracks assets deployed on remote chain
-    uint256 public remoteAssets;
+    /// @notice Tracks unreported profit/loss
+    int256 public unreportedProfit;
 
     constructor(
         address _asset,
@@ -32,6 +32,8 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         REMOTE_ID = _remoteId;
         REMOTE_COUNTERPART = _remoteCounterpart;
         DEPOSITER = _depositer;
+
+        _setProfitLimitRatio(1_000); // 10%
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -42,12 +44,14 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @return _totalAssets Sum of local balance and remote assets
     function _harvestAndReport()
         internal
-        view
         virtual
         override
         returns (uint256 _totalAssets)
     {
-        _totalAssets = asset.balanceOf(address(this)) + remoteAssets;
+        _totalAssets = _toUint256(
+            _toInt256(TokenizedStrategy.totalAssets()) + unreportedProfit
+        );
+        unreportedProfit = 0;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -73,10 +77,10 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Handles incoming cross-chain messages
     /// @param amount Signed integer representing asset change (positive = profit, negative = withdrawal)
     function _handleIncomingMessage(int256 amount) internal virtual {
-        // Update remote assets accounting
+        // Update unreported profit/loss
         // Positive amount = profit reported
-        // Negative amount = withdrawal fulfilled or loss reported
-        remoteAssets = _toUint256(_toInt256(remoteAssets) + amount);
+        // Negative amount = loss reported
+        unreportedProfit += amount;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -86,11 +90,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Deploy funds to remote chain
     /// @dev Increments request ID, calls bridge implementation, updates remote assets
     function _deployFunds(uint256 _amount) internal virtual override {
-        bytes memory data = abi.encode(_toInt256(_amount));
-
-        uint256 bridged = _bridgeAssets(_amount, data);
-
-        remoteAssets += bridged;
+        _bridgeAssets(_amount);
     }
 
     /// @notice No-op for freeing funds (not needed for cross-chain strategies)
@@ -103,35 +103,13 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Bridge assets to remote chain
     /// @dev Implementation must handle bridge-specific token transfer logic
     /// @param amount Amount of tokens to bridge
-    /// @param data Bridge-specific encoded data (includes request ID and amount)
-    function _bridgeAssets(
-        uint256 amount,
-        bytes memory data
-    ) internal virtual returns (uint256);
+    function _bridgeAssets(uint256 amount) internal virtual returns (uint256);
 
-    /**
-     * @dev Converts a signed int256 into an unsigned uint256.
-     *
-     * Requirements:
-     *
-     * - input must be greater than or equal to 0.
-     *
-     * _Available since v3.0._
-     */
     function _toUint256(int256 value) internal pure returns (uint256) {
         require(value >= 0, "must be positive");
         return uint256(value);
     }
 
-    /**
-     * @dev Converts an unsigned uint256 into a signed int256.
-     *
-     * Requirements:
-     *
-     * - input must be less than or equal to maxInt256.
-     *
-     * _Available since v3.0._
-     */
     function _toInt256(uint256 value) internal pure returns (int256) {
         // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
         require(

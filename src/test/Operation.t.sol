@@ -23,7 +23,7 @@ contract OperationTest is Setup {
         // Generic cross-chain properties
         assertEq(strategy.DEPOSITER(), depositor);
         assertEq(strategy.REMOTE_COUNTERPART(), address(remoteStrategy));
-        assertEq(strategy.remoteAssets(), 0);
+        assertEq(calculateRemoteAssets(strategy), 0);
     }
 
     // Test 2: Only DEPOSITER can deposit (generic access control test)
@@ -90,17 +90,17 @@ contract OperationTest is Setup {
             profitMessage
         );
 
-        // Verify remoteAssets updated correctly
-        assertEq(strategy.remoteAssets(), _amount + profit);
-        // Total assets has not updated
+        // In the new accounting model, remote assets don't change until after report
+        // Before report: totalAssets stays the same, unreportedProfit is stored
+        assertEq(calculateRemoteAssets(strategy), _amount);
         assertEq(strategy.totalAssets(), _amount);
 
         vm.prank(keeper);
         strategy.report();
 
-        // Total assets should now include profit
+        // After report: totalAssets should now include profit
         assertEq(strategy.totalAssets(), _amount + profit);
-        assertEq(strategy.remoteAssets(), _amount + profit);
+        assertEq(calculateRemoteAssets(strategy), _amount + profit);
     }
 
     // Test 5: Remote asset tracking - loss updates
@@ -122,8 +122,9 @@ contract OperationTest is Setup {
             lossMessage
         );
 
-        // Verify remoteAssets reduced correctly
-        assertEq(strategy.remoteAssets(), _amount - loss);
+        // In the new accounting model, remote assets don't change until after report
+        // Before report: totalAssets stays the same, unreportedProfit is stored (negative)
+        assertEq(calculateRemoteAssets(strategy), _amount);
         assertEq(strategy.totalAssets(), _amount);
 
         vm.prank(management);
@@ -132,9 +133,9 @@ contract OperationTest is Setup {
         vm.prank(keeper);
         strategy.report();
 
-        // Total assets should now include loss
+        // After report: totalAssets should reflect loss
         assertEq(strategy.totalAssets(), _amount - loss);
-        assertEq(strategy.remoteAssets(), _amount - loss);
+        assertEq(calculateRemoteAssets(strategy), _amount - loss);
     }
 
     // Test 7: Invalid sender/domain rejection

@@ -10,6 +10,21 @@ import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     event UpdatedKeeper(address indexed keeper, bool indexed status);
 
+    event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
+
+    event UpdatedIsShutdown(bool indexed isShutdown);
+
+    event Reported(int256 indexed reportProfit);
+
+    modifier onlyKeepers() {
+        _requireIsKeeper(msg.sender);
+        _;
+    }
+
+    function _requireIsKeeper(address _sender) internal view virtual {
+        require(_sender == governance || keepers[_sender], "NotKeeper");
+    }
+
     /// @notice Remote chain identifier for the origin chain
     bytes32 public immutable REMOTE_ID;
 
@@ -20,19 +35,19 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     ERC20 public immutable asset;
 
     /// @notice Tracks assets for profit/loss calculations
-    uint256 public trackedAssets;
+    uint256 public deployedAssets;
+
+    /// @notice Used to match TokenizedStrategy interface for triggers.
+    uint256 public profitMaxUnlockTime;
+
+    /// @notice Used to match TokenizedStrategy interface for triggers.
+    uint256 public lastReport;
+
+    /// @notice Serves as a "pausable" but matches abi of TokenizedStrategy for triggers.
+    bool public isShutdown;
 
     /// @notice Addresses authorized to perform keeper operations
     mapping(address => bool) public keepers;
-
-    modifier onlyKeepers() {
-        _requireIsKeeper(msg.sender);
-        _;
-    }
-
-    function _requireIsKeeper(address _sender) internal view virtual {
-        require(_sender == governance || keepers[_sender], "NotKeeper");
-    }
 
     constructor(
         address _asset,
@@ -47,6 +62,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         asset = ERC20(_asset);
         REMOTE_ID = _remoteId;
         REMOTE_COUNTERPART = _remoteCounterpart;
+        lastReport = block.timestamp;
+        profitMaxUnlockTime = 7 days;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -56,20 +73,52 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @notice Send exposure report to origin chain
     /// @dev Calculates profit/loss and bridges message back
     /// @return reportProfit The profit/loss reported to the origin chain
-    function sendReport()
+    function report()
         external
         virtual
         onlyKeepers
         returns (int256 reportProfit)
     {
-        uint256 newTotalAssets = totalAssets();
-        reportProfit = _toInt256(newTotalAssets) - _toInt256(trackedAssets);
+        require(block.timestamp > lastReport, "NotReady");
 
-        bytes memory messageBody = abi.encode(reportProfit);
+        uint256 newDeployedAssets = valueOfDeployedAssets();
 
-        trackedAssets = newTotalAssets;
+        reportProfit = _toInt256(newDeployedAssets) - _toInt256(deployedAssets);
 
-        _bridgeMessage(messageBody);
+        uint256 idle = balanceOfAsset();
+        if (idle > 0 && !isShutdown) {
+            newDeployedAssets += _pushFunds(idle);
+        }
+
+        // Update State
+        lastReport = block.timestamp;
+        deployedAssets = newDeployedAssets;
+
+        if (reportProfit != 0) {
+            bytes memory messageBody = abi.encode(reportProfit);
+            _bridgeMessage(messageBody);
+        }
+
+        emit Reported(reportProfit);
+    }
+
+    function tend() external virtual onlyKeepers {
+        _tend(balanceOfAsset());
+    }
+
+    /**
+     * @notice Returns if tend() should be called by a keeper.
+     *
+     * @return . Should return true if tend() should be called by keeper or false if not.
+     * @return . Calldata for the tend call.
+     */
+    function tendTrigger() external view virtual returns (bool, bytes memory) {
+        return (
+            // Return the status of the tend trigger.
+            _tendTrigger(),
+            // And the needed calldata either way.
+            abi.encodeWithSelector(this.tend.selector)
+        );
     }
 
     /// @notice Process withdrawal request from origin chain
@@ -78,8 +127,9 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     function processWithdrawal(uint256 _amount) external virtual onlyKeepers {
         if (_amount == 0) return;
 
-        uint256 available = totalAssets();
-        uint256 loose = asset.balanceOf(address(this));
+        uint256 loose = balanceOfAsset();
+        // Cannot withdraw unaccounted for profit/loss
+        uint256 available = loose + deployedAssets;
 
         if (_amount > available) {
             _amount = available;
@@ -87,32 +137,29 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
         if (_amount > loose) {
             uint256 withdrawn = _pullFunds(_amount - loose);
+            deployedAssets -= withdrawn;
 
             if (withdrawn < _amount - loose) {
                 _amount = loose + withdrawn;
             }
         }
 
-        uint256 balance = asset.balanceOf(address(this));
-        require(balance >= _amount, "not enough");
+        require(balanceOfAsset() >= _amount, "not enough");
 
-        bytes memory messageBody = abi.encode(-_toInt256(_amount));
-
-        uint256 bridged = _bridgeAssets(_amount, messageBody);
-
-        trackedAssets -= bridged;
+        _bridgeAssets(_amount);
     }
 
     /// @notice Push loose funds into the vault
     /// @param _amount Amount to deposit into vault
     function pushFunds(uint256 _amount) external virtual onlyKeepers {
-        _pushFunds(_amount);
+        require(!isShutdown, "Shutdown");
+        deployedAssets += _pushFunds(_amount);
     }
 
     /// @notice Pull funds from the vault
     /// @param _amount Amount of shares to redeem from vault
     function pullFunds(uint256 _amount) external virtual onlyKeepers {
-        _pullFunds(_amount);
+        deployedAssets -= _pullFunds(_amount);
     }
 
     /// @notice Set keeper status for an address
@@ -131,50 +178,29 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         _setAuction(_auction);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                        INTERNAL HELPER FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    function setProfitMaxUnlockTime(
+        uint256 _profitMaxUnlockTime
+    ) external onlyGovernance {
+        profitMaxUnlockTime = _profitMaxUnlockTime;
 
-    /// @notice Handle incoming deposit from origin chain
-    /// @dev Validates message ordering, deposits to vault, updates tracking
-    /// @param _amount Amount of assets received (must be positive)
-    function _handleIncomingMessage(int256 _amount) internal virtual {
-        require(_amount > 0, "InvalidAmount");
-        uint256 amount = _toUint256(_amount);
-        require(
-            asset.balanceOf(address(this)) >= amount,
-            "InsufficientBalance"
-        );
-
-        // Add all added funds to tracked assets
-        trackedAssets = _toUint256(_toInt256(trackedAssets) + _amount);
-
-        _pushFunds(amount);
+        emit UpdatedProfitMaxUnlockTime(_profitMaxUnlockTime);
     }
 
-    /**
-     * @dev Converts a signed int256 into an unsigned uint256.
-     *
-     * Requirements:
-     *
-     * - input must be greater than or equal to 0.
-     *
-     * _Available since v3.0._
-     */
+    function setIsShutdown(bool _isShutdown) external onlyGovernance {
+        isShutdown = _isShutdown;
+
+        emit UpdatedIsShutdown(_isShutdown);
+    }
+
+    //////////////////////////////////////////////////////////////
+    //                        INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////
+
     function _toUint256(int256 value) internal pure returns (uint256) {
         require(value >= 0, "must be positive");
         return uint256(value);
     }
 
-    /**
-     * @dev Converts an unsigned uint256 into a signed int256.
-     *
-     * Requirements:
-     *
-     * - input must be less than or equal to maxInt256.
-     *
-     * _Available since v3.0._
-     */
     function _toInt256(uint256 value) internal pure returns (int256) {
         // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
         require(
@@ -189,20 +215,32 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Calculate total assets held (vault + loose)
-    function totalAssets() public view virtual returns (uint256);
+    function totalAssets() public view virtual returns (uint256) {
+        return balanceOfAsset() + valueOfDeployedAssets();
+    }
+
+    function balanceOfAsset() public view virtual returns (uint256) {
+        return asset.balanceOf(address(this));
+    }
+
+    function valueOfDeployedAssets() public view virtual returns (uint256);
 
     function _pushFunds(uint256 _amount) internal virtual returns (uint256);
 
     function _pullFunds(uint256 _amount) internal virtual returns (uint256);
 
+    function _tend(uint256 _idleAssets) internal virtual {
+        deployedAssets += _pushFunds(_idleAssets);
+    }
+
+    function _tendTrigger() internal view virtual returns (bool) {
+        return false;
+    }
+
     /// @notice Bridge assets back to origin chain
     /// @dev Implementation must handle bridge-specific token transfer logic
-    /// @param amount Amount of tokens to bridge back
-    /// @param data Bridge-specific encoded data (typically includes request ID and negative amount)
-    function _bridgeAssets(
-        uint256 amount,
-        bytes memory data
-    ) internal virtual returns (uint256);
+    /// @param _amount Amount of tokens to bridge back
+    function _bridgeAssets(uint256 _amount) internal virtual returns (uint256);
 
     /// @notice Send message to origin chain without tokens
     /// @dev Implementation must handle bridge-specific message sending

@@ -40,18 +40,16 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
     /// @notice Bridge assets to remote chain via CCTP
     /// @dev Called by BaseCrossChain._deployFunds()
     function _bridgeAssets(
-        uint256 _amount,
-        bytes memory _data
+        uint256 _amount
     ) internal override returns (uint256) {
-        TOKEN_MESSENGER.depositForBurnWithHook(
+        TOKEN_MESSENGER.depositForBurn(
             _amount,
             uint32(uint256(REMOTE_ID)),
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0),
             0,
-            FINALITY_THRESHOLD_FINALIZED,
-            _data
+            FINALITY_THRESHOLD_FINALIZED
         );
 
         return _amount;
@@ -89,5 +87,13 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
         _handleIncomingMessage(amount);
 
         return true;
+    }
+
+    function rescue(
+        address _token,
+        address _to,
+        uint256 _amount
+    ) external onlyManagement {
+        ERC20(_token).safeTransfer(_to, _amount);
     }
 }

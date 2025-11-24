@@ -170,7 +170,7 @@ contract Setup is Test, IEvents {
                 ETH_MESSAGE_TRANSMITTER
             )
         );
-        bytes32 salt = bytes32(abi.encode("gigga goopa poo poo"));
+        bytes32 salt = bytes32(abi.encodePacked("gigga goa poo poo"));
 
         address _remoteFactory = ICreateX(createX).deployCreate3(
             salt,
@@ -223,7 +223,7 @@ contract Setup is Test, IEvents {
                 BASE_MESSAGE_TRANSMITTER
             )
         );
-        bytes32 salt = bytes32(abi.encode("gigga goopa poo poo"));
+        bytes32 salt = bytes32(abi.encodePacked("gigga goa poo poo"));
 
         _remoteFactory = RemoteStrategyFactory(
             ICreateX(createX).deployCreate3(salt, creationCode)
@@ -330,12 +330,26 @@ contract Setup is Test, IEvents {
         }
     }
 
+    function calculateRemoteAssets(
+        IStrategyInterface _strategy
+    ) public view returns (uint256) {
+        // In the new accounting model, remote assets = totalAssets - local balance
+        uint256 totalAssets = _strategy.totalAssets();
+        uint256 localBalance = ERC20(_strategy.asset()).balanceOf(
+            address(_strategy)
+        );
+        if (totalAssets > localBalance) {
+            return totalAssets - localBalance;
+        }
+        return 0;
+    }
+
     function checkCrossChainInvariant() public {
         // Total assets should equal sum of local and remote
         vm.selectFork(ethFork);
         uint256 totalAssets = strategy.totalAssets();
         uint256 localBalance = USDC_ETHEREUM.balanceOf(address(strategy));
-        uint256 remoteAssets = strategy.remoteAssets();
+        uint256 remoteAssets = calculateRemoteAssets(strategy);
 
         assertApproxEqAbs(
             totalAssets,

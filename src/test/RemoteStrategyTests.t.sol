@@ -13,15 +13,11 @@ contract RemoteStrategyTests is Setup {
 
     function simulateBridgeDeposit(uint256 _amount) public {
         vm.selectFork(baseFork);
+        // Simulate receiving USDC from bridge
         airdropUSDC(address(remoteStrategy), _amount);
-        bytes memory messageBody = abi.encode(int256(_amount));
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000, // FINALITY_THRESHOLD_FINALIZED
-            messageBody
-        );
+        // In new architecture, keeper pushes funds to vault
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(_amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -77,22 +73,18 @@ contract RemoteStrategyTests is Setup {
         // Simulate receiving USDC from bridge
         airdropUSDC(address(remoteStrategy), amount);
 
-        // Simulate CCTP message
-        bytes memory messageBody = abi.encode(int256(amount));
-
+        // In the new architecture, remote strategies don't receive CCTP messages for deposits
+        // Instead, keepers manually push funds to the vault
         uint256 vaultBalanceBefore = vault.balanceOf(address(remoteStrategy));
 
-        vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        remoteStrategy.handleReceiveFinalizedMessage(
-            ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(strategy)))),
-            2000, // FINALITY_THRESHOLD_FINALIZED
-            messageBody
-        );
+        // Keeper pushes the idle funds to the vault
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(amount);
 
         // Should have deposited to vault
         uint256 vaultBalanceAfter = vault.balanceOf(address(remoteStrategy));
         assertGt(vaultBalanceAfter, vaultBalanceBefore);
+        assertEq(remoteStrategy.deployedAssets(), amount);
     }
 
     function test_handleVaultDepositLimit() public useBaseFork {
@@ -114,16 +106,20 @@ contract RemoteStrategyTests is Setup {
     }
 
     function test_rejectInvalidMainStrategy() public useBaseFork {
+        // In the new architecture, remote strategies don't process incoming CCTP messages
+        // They simply return false for any handleReceiveFinalizedMessage call
         bytes memory messageBody = abi.encode(int256(1000e6));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
-        vm.expectRevert("InvalidSender");
-        remoteStrategy.handleReceiveFinalizedMessage(
+        bool result = remoteStrategy.handleReceiveFinalizedMessage(
             ETHEREUM_DOMAIN,
-            bytes32(uint256(uint160(address(0xdead)))), // Wrong sender
+            bytes32(uint256(uint160(address(0xdead)))), // Any sender
             2000, // FINALITY_THRESHOLD_FINALIZED
             messageBody
         );
+
+        // Should return false as remote strategies don't process messages
+        assertEq(result, false);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -138,9 +134,12 @@ contract RemoteStrategyTests is Setup {
         vm.prank(keeper);
         remoteStrategy.pushFunds(amount);
 
+        // Advance time as report requires block.timestamp > lastReport
+        skip(1);
+
         // Send exposure report
         vm.prank(keeper);
-        remoteStrategy.sendReport();
+        remoteStrategy.report();
     }
 
     function test_exposureReportCalculation() public useBaseFork {
@@ -154,20 +153,26 @@ contract RemoteStrategyTests is Setup {
         // Simulate profit by adding to vault
         airdropUSDC(address(remoteStrategy), 1000e6); // Extra funds
 
+        // Advance time as report requires block.timestamp > lastReport
+        skip(1);
+
         vm.prank(keeper);
-        remoteStrategy.sendReport();
+        remoteStrategy.report();
 
         // Total assets should reflect vault balance
         // Note: Can't verify message content without mocking TokenMessenger
     }
 
     function test_onlyKeepersCanSendReport() public useBaseFork {
+        // Advance time as report requires block.timestamp > lastReport
+        skip(1);
+
         vm.prank(user);
         vm.expectRevert("NotKeeper");
-        remoteStrategy.sendReport();
+        remoteStrategy.report();
 
         vm.prank(keeper);
-        remoteStrategy.sendReport(); // Should succeed
+        remoteStrategy.report(); // Should succeed
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -181,14 +186,14 @@ contract RemoteStrategyTests is Setup {
         simulateBridgeDeposit(amount);
 
         // Total assets should reflect vault balance
-        uint256 totalAssets = remoteStrategy.trackedAssets();
+        uint256 totalAssets = remoteStrategy.deployedAssets();
         assertEq(totalAssets, amount);
 
         // Process withdrawal
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(withdrawAmount);
 
-        assertEq(remoteStrategy.trackedAssets(), amount - withdrawAmount);
+        assertEq(remoteStrategy.deployedAssets(), amount - withdrawAmount);
         assertApproxEqAbs(
             vault.convertToAssets(vault.balanceOf(address(remoteStrategy))),
             amount - withdrawAmount,
@@ -359,7 +364,10 @@ contract RemoteStrategyTests is Setup {
             additionalLoose;
 
         // Can't directly access totalAssets() since it's internal, but it's used in reports
+        // Advance time as report requires block.timestamp > lastReport
+        skip(1);
+
         vm.prank(keeper);
-        remoteStrategy.sendReport(); // This uses totalAssets internally
+        remoteStrategy.report(); // This uses totalAssets internally
     }
 }
