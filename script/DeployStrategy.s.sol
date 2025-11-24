@@ -11,8 +11,8 @@ contract DeployStrategy is Script {
     // ============================================
     // SET THESE FACTORY ADDRESSES AFTER DEPLOYING FACTORIES
     // ============================================
-    address constant MAINNET_FACTORY = 0x6F8613A9885E45f3f41145e86961Fee9A074c588; // SET THIS
-    address constant REMOTE_FACTORY = 0xF2D7217ac9D67DB3c6ec921124E30a94a34db74e;    // SET THIS
+    address constant MAINNET_FACTORY = 0x4C612ac56463d90379196eb3ea55A642A8140373; // SET THIS
+    address constant REMOTE_FACTORY = 0xeC583875ef771FAa0E37DdAfEF18cb99EaBB72Bd;    // SET THIS
 
     // ============================================
     // STRATEGY PARAMETERS
@@ -26,9 +26,9 @@ contract DeployStrategy is Script {
     address constant ARB_VAULT = 0x2c28c7d3B482E9BCEceff1a57F9ccEa490E9Daa1;     // Fluid Compounder
 
     function run() external {
-            //deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
+            deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
             //deployStrategy(CCTPHelpers.POLYGON_DOMAIN, POLYGON_VAULT, "POLYGON_RPC_URL");
-            deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, ARB_VAULT, "ARB_RPC_URL");
+            //deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, ARB_VAULT, "ARB_RPC_URL");
     }
 
     function deployStrategy(uint32 _remoteDomain, address _remoteVault, string memory _rpc) public {

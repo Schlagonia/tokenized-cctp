@@ -23,7 +23,7 @@ contract DeployFactories is Script {
         address emergencyAdmin = deployer;
         address governance = deployer;
         
-        bytes32 salt = bytes32(abi.encode("remote factory test"));
+        bytes32 salt = bytes32(abi.encodePacked("remote factory test 2"));
 
         console.log("\n=================================");
         console.log("Deploying Factories");
@@ -88,6 +88,8 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Base RemoteStrategyFactory:", address(baseFactory));
 
+        /** 
+
         // Deploy RemoteStrategyFactory on Polygon
         vm.createSelectFork(vm.envString("POLYGON_RPC_URL"));
         vm.startBroadcast();
@@ -134,14 +136,16 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Arbitrum RemoteStrategyFactory:", address(arbFactory));
 
+        */
+
         // Summary
         console.log("\n=================================");
         console.log("DEPLOYMENT SUMMARY");
         console.log("=================================");
         console.log("Ethereum StrategyFactory:", address(strategyFactory));
         console.log("Base RemoteStrategyFactory:", address(baseFactory));
-        console.log("Polygon RemoteStrategyFactory:", address(polygonFactory));
-        console.log("Arbitrum RemoteStrategyFactory:", address(arbFactory));
+        //console.log("Polygon RemoteStrategyFactory:", address(polygonFactory));
+        //console.log("Arbitrum RemoteStrategyFactory:", address(arbFactory));
         console.log("=================================\n");
     }
 }
