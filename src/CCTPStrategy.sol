@@ -94,6 +94,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
         address _to,
         uint256 _amount
     ) external onlyManagement {
+        require(_token != address(asset), "Invalid token");
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }
