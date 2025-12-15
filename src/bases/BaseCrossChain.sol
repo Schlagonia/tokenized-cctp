@@ -105,18 +105,4 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @dev Implementation must handle bridge-specific token transfer logic
     /// @param amount Amount of tokens to bridge
     function _bridgeAssets(uint256 amount) internal virtual returns (uint256);
-
-    function _toUint256(int256 value) internal pure returns (uint256) {
-        require(value >= 0, "must be positive");
-        return uint256(value);
-    }
-
-    function _toInt256(uint256 value) internal pure returns (int256) {
-        // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
-        require(
-            value <= uint256(type(int256).max),
-            "does not fit in an int256"
-        );
-        return int256(value);
-    }
 }

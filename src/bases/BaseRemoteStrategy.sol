@@ -183,14 +183,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         emit UpdatedIsShutdown(_isShutdown);
     }
 
-    //////////////////////////////////////////////////////////////
-    //                        INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////
-
-    function _toUint256(int256 value) internal pure returns (uint256) {
-        require(value >= 0, "must be positive");
-        return uint256(value);
-    }
 
     function _toInt256(uint256 value) internal pure returns (int256) {
         // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
