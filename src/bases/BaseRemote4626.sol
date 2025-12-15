@@ -29,7 +29,10 @@ abstract contract BaseRemote4626 is BaseRemoteStrategy {
     function _pushFunds(
         uint256 _amount
     ) internal virtual override returns (uint256) {
-        vault.deposit(_amount, address(this));
+        vault.deposit(
+            Math.min(_amount, vault.maxDeposit(address(this))),
+            address(this)
+        );
         return _amount;
     }
 

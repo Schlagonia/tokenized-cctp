@@ -7,14 +7,14 @@ import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 
 /// @notice Base contract for cross-chain strategies on remote chains
 /// @dev Provides keeper management, ERC4626 vault interaction, and abstract bridging interface
-abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
-    event UpdatedKeeper(address indexed keeper, bool indexed status);
-
-    event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
+abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {    
+    event Reported(uint256 indexed totalAssets);
 
     event UpdatedIsShutdown(bool indexed isShutdown);
 
-    event Reported(uint256 indexed totalAssets);
+    event UpdatedKeeper(address indexed keeper, bool indexed status);
+
+    event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
 
     modifier onlyKeepers() {
         _requireIsKeeper(msg.sender);
@@ -25,23 +25,24 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         require(_sender == governance || keepers[_sender], "NotKeeper");
     }
 
+    
+    /// @notice The asset token for this strategy
+    ERC20 public immutable asset;
+
     /// @notice Remote chain identifier for the origin chain
     bytes32 public immutable REMOTE_ID;
 
     /// @notice Address of the origin strategy counterpart
     address public immutable REMOTE_COUNTERPART;
 
-    /// @notice The asset token for this strategy
-    ERC20 public immutable asset;
-
-    /// @notice Used to match TokenizedStrategy interface for triggers.
-    uint256 public profitMaxUnlockTime;
+    /// @notice Serves as a "pausable" but matches abi of TokenizedStrategy for triggers.
+    bool public isShutdown;
 
     /// @notice Used to match TokenizedStrategy interface for triggers.
     uint256 public lastReport;
 
-    /// @notice Serves as a "pausable" but matches abi of TokenizedStrategy for triggers.
-    bool public isShutdown;
+    /// @notice Used to match TokenizedStrategy interface for triggers.
+    uint256 public profitMaxUnlockTime;
 
     /// @notice Addresses authorized to perform keeper operations
     mapping(address => bool) public keepers;

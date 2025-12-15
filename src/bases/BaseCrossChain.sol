@@ -6,14 +6,14 @@ import {BaseHealthCheck} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol"
 /// @notice Base contract for cross-chain strategies on the origin chain
 /// @dev Provides message ordering, remote asset tracking, and abstract bridging interface
 abstract contract BaseCrossChain is BaseHealthCheck {
+    /// @notice Address allowed to deposit into this strategy
+    address public immutable DEPOSITER;
+
     /// @notice Remote chain identifier (can be domain ID, chain ID, etc.)
     bytes32 public immutable REMOTE_ID;
 
     /// @notice Address of the remote strategy counterpart
     address public immutable REMOTE_COUNTERPART;
-
-    /// @notice Address allowed to deposit into this strategy
-    address public immutable DEPOSITER;
 
     /// @notice Tracks remote assets
     uint256 public remoteAssets;
