@@ -15,8 +15,12 @@ contract ShutdownTest is Setup {
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
-        // Ensure strategy has local balance
+        // Ensure strategy has local balance (simulating funds returned from remote)
         airdropUSDC(address(strategy), _amount);
+
+        // Disable health check since we're simulating a large fund increase
+        vm.prank(management);
+        strategy.setDoHealthCheck(false);
 
         vm.prank(keeper);
         strategy.report();

@@ -14,7 +14,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     event UpdatedIsShutdown(bool indexed isShutdown);
 
-    event Reported(int256 indexed reportProfit);
+    event Reported(uint256 indexed totalAssets);
 
     modifier onlyKeepers() {
         _requireIsKeeper(msg.sender);
@@ -33,9 +33,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     /// @notice The asset token for this strategy
     ERC20 public immutable asset;
-
-    /// @notice Tracks assets for profit/loss calculations
-    uint256 public deployedAssets;
 
     /// @notice Used to match TokenizedStrategy interface for triggers.
     uint256 public profitMaxUnlockTime;
@@ -72,34 +69,28 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     /// @notice Send exposure report to origin chain
     /// @dev Calculates profit/loss and bridges message back
-    /// @return reportProfit The profit/loss reported to the origin chain
+    /// @return _totalAssets The total assets reported to the origin chain
     function report()
         external
         virtual
         onlyKeepers
-        returns (int256 reportProfit)
+        returns (uint256 _totalAssets)
     {
         require(block.timestamp > lastReport, "NotReady");
 
-        uint256 newDeployedAssets = valueOfDeployedAssets();
-
-        reportProfit = _toInt256(newDeployedAssets) - _toInt256(deployedAssets);
-
         uint256 idle = balanceOfAsset();
         if (idle > 0 && !isShutdown) {
-            newDeployedAssets += _pushFunds(idle);
+            _pushFunds(idle);
         }
 
         // Update State
         lastReport = block.timestamp;
-        deployedAssets = newDeployedAssets;
+        _totalAssets = totalAssets();
 
-        if (reportProfit != 0) {
-            bytes memory messageBody = abi.encode(reportProfit);
-            _bridgeMessage(messageBody);
-        }
+        bytes memory messageBody = abi.encode(_totalAssets);
+        _bridgeMessage(messageBody);
 
-        emit Reported(reportProfit);
+        emit Reported(_totalAssets);
     }
 
     function tend() external virtual onlyKeepers {
@@ -129,7 +120,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
         uint256 loose = balanceOfAsset();
         // Cannot withdraw unaccounted for profit/loss
-        uint256 available = loose + deployedAssets;
+        uint256 available = loose + valueOfDeployedAssets();
 
         if (_amount > available) {
             _amount = available;
@@ -137,7 +128,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
         if (_amount > loose) {
             uint256 withdrawn = _pullFunds(_amount - loose);
-            deployedAssets -= withdrawn;
 
             if (withdrawn < _amount - loose) {
                 _amount = loose + withdrawn;
@@ -153,13 +143,13 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @param _amount Amount to deposit into vault
     function pushFunds(uint256 _amount) external virtual onlyKeepers {
         require(!isShutdown, "Shutdown");
-        deployedAssets += _pushFunds(_amount);
+        _pushFunds(_amount);
     }
 
     /// @notice Pull funds from the vault
     /// @param _amount Amount of shares to redeem from vault
     function pullFunds(uint256 _amount) external virtual onlyKeepers {
-        deployedAssets -= _pullFunds(_amount);
+        _pullFunds(_amount);
     }
 
     /// @notice Set keeper status for an address
@@ -230,7 +220,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     function _pullFunds(uint256 _amount) internal virtual returns (uint256);
 
     function _tend(uint256 _idleAssets) internal virtual {
-        deployedAssets += _pushFunds(_idleAssets);
+        _pushFunds(_idleAssets);
     }
 
     function _tendTrigger() internal view virtual returns (bool) {

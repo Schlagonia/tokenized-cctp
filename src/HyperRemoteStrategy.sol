@@ -153,7 +153,8 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
 
         // Initiate async bridge from Core spot to EVM
         _spotSend(USDC_SYSTEM_ADDRESS, USDC_SPOT_INDEX, _amount);
-        return _amount;
+        // Return 0 since its non atomic, so processWithdrawal does not try to bridge the funds back.
+        return 0;
     }
 
     /// @notice Bridge assets back to origin chain via CCTP
@@ -221,6 +222,15 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         uint256 balance18 = _usdPerpsBalance();
         // Convert to 6 decimals
         return balance18 / 1e12;
+    }
+
+    /// @notice Get HyperCore vault equity (USDC available in vault)
+    /// @dev This is the amount that can be withdrawn from the vault
+    /// @return Equity in 6 decimals
+    function vaultEquity() public view returns (uint256) {
+        uint256 equity18 = _vaultEquity(HLP_VAULT);
+        // Convert to 6 decimals
+        return equity18 / 1e12;
     }
 
     /*//////////////////////////////////////////////////////////////

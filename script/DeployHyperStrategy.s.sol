@@ -22,13 +22,12 @@ contract DeployHyperStrategy is Script {
     // STRATEGY PARAMETERS - CONFIGURE THESE
     // ============================================
     string constant STRATEGY_NAME = "HLP CCTP USDC";
-    address constant DEPOSITER = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
+    address constant DEPOSITER = 0xC62fC9b0bb3D9c7a47A6af1ed30d7a4C74E37774;
     address constant GOVERNANCE = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
+    address deployer = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
 
     function run() external {
         // Step 1: Compute the remote strategy address before deployment
-        // This allows us to deploy the origin strategy with the correct counterpart
-        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
 
         // Get deployer nonce on HyperEVM to predict remote address
         vm.createSelectFork(vm.envString("HYPER_RPC_URL"));
@@ -39,6 +38,7 @@ contract DeployHyperStrategy is Script {
         console.log("HyperEVM nonce:", hyperNonce);
         console.log("Predicted remote address:", predictedRemote);
 
+        /** 
         // Step 2: Deploy origin strategy on Ethereum
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         vm.startBroadcast();
@@ -57,6 +57,8 @@ contract DeployHyperStrategy is Script {
 
         console.log("=== ETHEREUM ===");
         console.log("Origin Strategy:", address(originStrategy));
+        */
+        CCTPStrategy originStrategy = CCTPStrategy(0x6447B88C071b98900c40da7C7957537c977EF295);
 
         // Step 3: Deploy remote strategy on HyperEVM
         vm.createSelectFork(vm.envString("HYPER_RPC_URL"));

@@ -15,8 +15,8 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Address allowed to deposit into this strategy
     address public immutable DEPOSITER;
 
-    /// @notice Tracks unreported profit/loss
-    int256 public unreportedProfit;
+    /// @notice Tracks remote assets
+    uint256 public remoteAssets;
 
     constructor(
         address _asset,
@@ -48,10 +48,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         override
         returns (uint256 _totalAssets)
     {
-        _totalAssets = _toUint256(
-            _toInt256(TokenizedStrategy.totalAssets()) + unreportedProfit
-        );
-        unreportedProfit = 0;
+        _totalAssets = balanceOfAsset() + remoteAssets;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -63,7 +60,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     function availableWithdrawLimit(
         address /* _owner */
     ) public view virtual override returns (uint256) {
-        return asset.balanceOf(address(this));
+        return balanceOfAsset();
     }
 
     /// @notice Restrict deposits to specific depositer address
@@ -76,11 +73,15 @@ abstract contract BaseCrossChain is BaseHealthCheck {
 
     /// @notice Handles incoming cross-chain messages
     /// @param amount Signed integer representing asset change (positive = profit, negative = withdrawal)
-    function _handleIncomingMessage(int256 amount) internal virtual {
-        // Update unreported profit/loss
-        // Positive amount = profit reported
-        // Negative amount = loss reported
-        unreportedProfit += amount;
+    function _handleIncomingMessage(uint256 amount) internal virtual {
+        // NOTE: Its possible a remote report while funds are in flight would cause an invalid report to cause incorrect losses.
+        // We accpet the amount either wauy since _harvestAndReport() will execute health check and make sure the message can
+        // not be executed in the future.
+        remoteAssets = amount;
+    }
+
+    function balanceOfAsset() public view virtual returns (uint256) {
+        return asset.balanceOf(address(this));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -90,7 +91,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Deploy funds to remote chain
     /// @dev Increments request ID, calls bridge implementation, updates remote assets
     function _deployFunds(uint256 _amount) internal virtual override {
-        _bridgeAssets(_amount);
+        remoteAssets += _bridgeAssets(_amount);
     }
 
     /// @notice No-op for freeing funds (not needed for cross-chain strategies)
