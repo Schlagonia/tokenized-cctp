@@ -7,7 +7,7 @@ import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 
 /// @notice Base contract for cross-chain strategies on remote chains
 /// @dev Provides keeper management, ERC4626 vault interaction, and abstract bridging interface
-abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {    
+abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     event Reported(uint256 indexed totalAssets);
 
     event UpdatedIsShutdown(bool indexed isShutdown);
@@ -25,7 +25,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         require(_sender == governance || keepers[_sender], "NotKeeper");
     }
 
-    
     /// @notice The asset token for this strategy
     ERC20 public immutable asset;
 
@@ -181,24 +180,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         isShutdown = _isShutdown;
 
         emit UpdatedIsShutdown(_isShutdown);
-    }
-
-    //////////////////////////////////////////////////////////////
-    //                        INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////
-
-    function _toUint256(int256 value) internal pure returns (uint256) {
-        require(value >= 0, "must be positive");
-        return uint256(value);
-    }
-
-    function _toInt256(uint256 value) internal pure returns (int256) {
-        // Note: Unsafe cast below is okay because `type(int256).max` is guaranteed to be positive
-        require(
-            value <= uint256(type(int256).max),
-            "does not fit in an int256"
-        );
-        return int256(value);
     }
 
     /*//////////////////////////////////////////////////////////////
