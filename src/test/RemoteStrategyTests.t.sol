@@ -84,7 +84,8 @@ contract RemoteStrategyTests is Setup {
         // Should have deposited to vault
         uint256 vaultBalanceAfter = vault.balanceOf(address(remoteStrategy));
         assertGt(vaultBalanceAfter, vaultBalanceBefore);
-        assertEq(remoteStrategy.deployedAssets(), amount);
+        // Use approx due to vault conversion rounding
+        assertApproxEqAbs(remoteStrategy.valueOfDeployedAssets(), amount, 10);
     }
 
     function test_handleVaultDepositLimit() public useBaseFork {
@@ -94,7 +95,7 @@ contract RemoteStrategyTests is Setup {
         // Mock vault max deposit (would need actual vault to test properly)
         // This test assumes vault has deposit limits
 
-        bytes memory messageBody = abi.encode(int256(amount));
+        bytes memory messageBody = abi.encode(uint256(amount));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         remoteStrategy.handleReceiveFinalizedMessage(
@@ -108,7 +109,7 @@ contract RemoteStrategyTests is Setup {
     function test_rejectInvalidMainStrategy() public useBaseFork {
         // In the new architecture, remote strategies don't process incoming CCTP messages
         // They simply return false for any handleReceiveFinalizedMessage call
-        bytes memory messageBody = abi.encode(int256(1000e6));
+        bytes memory messageBody = abi.encode(uint256(1000e6));
 
         vm.prank(address(BASE_MESSAGE_TRANSMITTER));
         bool result = remoteStrategy.handleReceiveFinalizedMessage(
@@ -185,15 +186,20 @@ contract RemoteStrategyTests is Setup {
 
         simulateBridgeDeposit(amount);
 
-        // Total assets should reflect vault balance
-        uint256 totalAssets = remoteStrategy.deployedAssets();
-        assertEq(totalAssets, amount);
+        // Total assets should reflect vault balance (with vault rounding)
+        uint256 totalAssets = remoteStrategy.valueOfDeployedAssets();
+        assertApproxEqAbs(totalAssets, amount, 10);
 
         // Process withdrawal
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(withdrawAmount);
 
-        assertEq(remoteStrategy.deployedAssets(), amount - withdrawAmount);
+        // Use approx due to vault conversion rounding
+        assertApproxEqAbs(
+            remoteStrategy.valueOfDeployedAssets(),
+            amount - withdrawAmount,
+            10
+        );
         assertApproxEqAbs(
             vault.convertToAssets(vault.balanceOf(address(remoteStrategy))),
             amount - withdrawAmount,

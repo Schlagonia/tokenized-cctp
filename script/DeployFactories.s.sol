@@ -28,6 +28,7 @@ contract DeployFactories is Script {
         console.log("\n=================================");
         console.log("Deploying Factories");
         console.log("=================================\n");
+        /** 
 
         // Deploy StrategyFactory on Ethereum mainnet
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
@@ -88,7 +89,7 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Base RemoteStrategyFactory:", address(baseFactory));
 
-        /** 
+        
 
         // Deploy RemoteStrategyFactory on Polygon
         vm.createSelectFork(vm.envString("POLYGON_RPC_URL"));
@@ -112,12 +113,13 @@ contract DeployFactories is Script {
         vm.stopBroadcast();
 
         console.log("[DEPLOYED] Polygon RemoteStrategyFactory:", address(polygonFactory));
+        */
 
         // Deploy RemoteStrategyFactory on Arbitrum
         vm.createSelectFork(vm.envString("ARB_RPC_URL"));
         vm.startBroadcast();
 
-        creationCode = abi.encodePacked(
+        bytes memory creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
                 governance,
@@ -136,16 +138,16 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Arbitrum RemoteStrategyFactory:", address(arbFactory));
 
-        */
+        
 
         // Summary
         console.log("\n=================================");
         console.log("DEPLOYMENT SUMMARY");
         console.log("=================================");
-        console.log("Ethereum StrategyFactory:", address(strategyFactory));
-        console.log("Base RemoteStrategyFactory:", address(baseFactory));
+        //console.log("Ethereum StrategyFactory:", address(strategyFactory));
+        //console.log("Base RemoteStrategyFactory:", address(baseFactory));
         //console.log("Polygon RemoteStrategyFactory:", address(polygonFactory));
-        //console.log("Arbitrum RemoteStrategyFactory:", address(arbFactory));
+        console.log("Arbitrum RemoteStrategyFactory:", address(arbFactory));
         console.log("=================================\n");
     }
 }

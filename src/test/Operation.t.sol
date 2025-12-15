@@ -80,8 +80,9 @@ contract OperationTest is Setup {
 
         vm.selectFork(ethFork);
 
-        // Simulate remote strategy reporting profit
-        bytes memory profitMessage = abi.encode(int256(profit));
+        // Simulate remote strategy reporting total assets (original + profit)
+        uint256 remoteTotal = _amount + profit;
+        bytes memory profitMessage = abi.encode(remoteTotal);
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -90,8 +91,8 @@ contract OperationTest is Setup {
             profitMessage
         );
 
-        // In the new accounting model, remote assets don't change until after report
-        // Before report: totalAssets stays the same, unreportedProfit is stored
+        // In the new accounting model, remoteAssets is set immediately
+        // but TokenizedStrategy.totalAssets() only updates after report()
         assertEq(calculateRemoteAssets(strategy), _amount);
         assertEq(strategy.totalAssets(), _amount);
 
@@ -112,8 +113,9 @@ contract OperationTest is Setup {
 
         vm.selectFork(ethFork);
 
-        // Simulate remote strategy reporting loss
-        bytes memory lossMessage = abi.encode(-int256(loss));
+        // Simulate remote strategy reporting total assets after loss
+        uint256 remoteTotal = _amount - loss;
+        bytes memory lossMessage = abi.encode(remoteTotal);
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -122,8 +124,8 @@ contract OperationTest is Setup {
             lossMessage
         );
 
-        // In the new accounting model, remote assets don't change until after report
-        // Before report: totalAssets stays the same, unreportedProfit is stored (negative)
+        // In the new accounting model, remoteAssets is set immediately
+        // but TokenizedStrategy.totalAssets() only updates after report()
         assertEq(calculateRemoteAssets(strategy), _amount);
         assertEq(strategy.totalAssets(), _amount);
 
@@ -141,7 +143,7 @@ contract OperationTest is Setup {
     // Test 7: Invalid sender/domain rejection
     function test_rejectInvalidSender() public useEthFork {
         uint256 _amount = 1000e6;
-        bytes memory message = abi.encode(int256(_amount));
+        bytes memory message = abi.encode(_amount);
 
         // Wrong transmitter (should fail)
         vm.prank(user);

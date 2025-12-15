@@ -9,6 +9,7 @@ library CCTPHelpers {
     uint32 public constant ARBITRUM_DOMAIN = 3;
     uint32 public constant BASE_DOMAIN = 6;
     uint32 public constant POLYGON_DOMAIN = 7;
+    uint32 public constant HYPEREVM_DOMAIN = 19;
 
     // Known CCTP contract addresses (mainnet)
     address public constant TOKEN_MESSENGER =
@@ -30,6 +31,8 @@ library CCTPHelpers {
         0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
     address public constant AVALANCHE_USDC =
         0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E;
+    address public constant HYPEREVM_USDC =
+        0xb88339CB7199b77E23DB6E890353E22632Ba630f;
 
     function getUSDC(uint32 domain) internal pure returns (address) {
         if (domain == ETHEREUM_DOMAIN) return ETHEREUM_USDC;
@@ -38,6 +41,7 @@ library CCTPHelpers {
         if (domain == BASE_DOMAIN) return BASE_USDC;
         if (domain == POLYGON_DOMAIN) return POLYGON_USDC;
         if (domain == AVALANCHE_DOMAIN) return AVALANCHE_USDC;
+        if (domain == HYPEREVM_DOMAIN) return HYPEREVM_USDC;
         revert("Unsupported domain");
     }
 

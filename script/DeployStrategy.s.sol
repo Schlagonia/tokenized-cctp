@@ -23,12 +23,12 @@ contract DeployStrategy is Script {
     // Vault addresses
     address constant BASE_VAULT = 0xF115C134c23C7A05FBD489A8bE3116EbF54B0D9f; // Morpho yearn compounder
     address constant POLYGON_VAULT = 0xD811a47cfD17355F47ac49Be02c4744A926dd16B; // Fluid Compounder
-    address constant ARB_VAULT = 0x2c28c7d3B482E9BCEceff1a57F9ccEa490E9Daa1;     // Fluid Compounder
+    address constant ARB_VAULT = 0x373C02BBdfb6c8bc678A5De2fA4A992c74a9E179;     // sUSDai Looper
 
     function run() external {
-            deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
+            //deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
             //deployStrategy(CCTPHelpers.POLYGON_DOMAIN, POLYGON_VAULT, "POLYGON_RPC_URL");
-            //deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, ARB_VAULT, "ARB_RPC_URL");
+            deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, ARB_VAULT, "ARB_RPC_URL");
     }
 
     function deployStrategy(uint32 _remoteDomain, address _remoteVault, string memory _rpc) public {
