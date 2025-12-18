@@ -19,19 +19,4 @@ abstract contract BaseLxLy is IBridgeMessageReceiver {
         LXLY_BRIDGE = IPolygonZkEVMBridgeV2(_bridge);
         LOCAL_NETWORK_ID = LXLY_BRIDGE.networkID();
     }
-
-    /// @notice Get the wrapped token address for a given origin token
-    /// @param originNetwork The network ID where the token originated
-    /// @param originTokenAddress The token address on the origin network
-    /// @return The wrapped token address on this network
-    function getWrappedToken(
-        uint32 originNetwork,
-        address originTokenAddress
-    ) public view returns (address) {
-        return
-            LXLY_BRIDGE.getTokenWrappedAddress(
-                originNetwork,
-                originTokenAddress
-            );
-    }
 }

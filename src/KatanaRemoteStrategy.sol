@@ -50,7 +50,7 @@ contract KatanaRemoteStrategy is BaseRemote4626, BaseLxLy {
             REMOTE_COUNTERPART,
             _amount,
             address(asset),
-            false, // forceUpdateGlobalExitRoot
+            true, // forceUpdateGlobalExitRoot
             "" // permitData
         );
 
@@ -64,7 +64,7 @@ contract KatanaRemoteStrategy is BaseRemote4626, BaseLxLy {
         LXLY_BRIDGE.bridgeMessage(
             uint32(uint256(REMOTE_ID)), // originNetworkId (Ethereum)
             REMOTE_COUNTERPART,
-            false, // forceUpdateGlobalExitRoot
+            true, // forceUpdateGlobalExitRoot
             data
         );
     }

@@ -1,26 +1,35 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import {KatanaSetup, MockVault} from "./utils/KatanaSetup.sol";
+import {KatanaSetup, MockVault, MockERC20} from "./utils/KatanaSetup.sol";
 import {KatanaStrategy} from "../KatanaStrategy.sol";
 import {KatanaRemoteStrategy} from "../KatanaRemoteStrategy.sol";
 import {KatanaHelpers} from "../libraries/KatanaHelpers.sol";
+import {IKatanaStrategy} from "../interfaces/IKatanaStrategy.sol";
 import {IVaultBridgeToken} from "../interfaces/lxly/IVaultBridgeToken.sol";
 import {IPolygonZkEVMBridgeV2} from "../interfaces/lxly/IPolygonZkEVMBridgeV2.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {ITokenizedStrategy} from "@tokenized-strategy/interfaces/ITokenizedStrategy.sol";
 
 /*//////////////////////////////////////////////////////////////
-                    KATANA STRATEGY TESTS
+            KATANA STRATEGY CONSTRUCTOR TESTS
 //////////////////////////////////////////////////////////////*/
 
+/// @title KatanaStrategyConstructorTest
+/// @notice Tests for KatanaStrategy constructor and initialization
 contract KatanaStrategyConstructorTest is KatanaSetup {
     function setUp() public override {
-        // Only create fork, don't deploy strategy yet
+        // Only create forks, don't deploy full setup yet
         string memory ethRpc = vm.envString("ETH_RPC_URL");
+        string memory katRpc = vm.envString("KAT_RPC_URL");
+
+        require(bytes(ethRpc).length > 0, "ETH_RPC_URL required");
+        require(bytes(katRpc).length > 0, "KAT_RPC_URL required");
+
         ethFork = vm.createFork(ethRpc);
+        katFork = vm.createFork(katRpc);
+
         vm.selectFork(ethFork);
 
         asset = ERC20(USDC);
@@ -29,24 +38,25 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
         decimals = asset.decimals();
     }
 
-    function test_constructor_success() public {
+    function test_constructor_success() public useEthFork {
         address remoteCounterpart = address(0xBEEF);
 
-        KatanaStrategy newStrategy = new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+        IKatanaStrategy newStrategy = IKatanaStrategy(
+            address(
+                new KatanaStrategy(
+                    USDC,
+                    "Katana USDC Strategy",
+                    VB_USDC,
+                    UNIFIED_BRIDGE,
+                    KATANA_NETWORK_ID,
+                    remoteCounterpart,
+                    depositor
+                )
+            )
         );
 
-        // Use ITokenizedStrategy for asset() since it's part of ERC4626
-        ITokenizedStrategy tokenized = ITokenizedStrategy(address(newStrategy));
-
         // Verify immutables
-        assertEq(tokenized.asset(), USDC, "Asset mismatch");
+        assertEq(newStrategy.asset(), USDC, "Asset mismatch");
         assertEq(address(newStrategy.VB_TOKEN()), VB_USDC, "VB_TOKEN mismatch");
         assertEq(
             address(newStrategy.LXLY_BRIDGE()),
@@ -66,91 +76,50 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
         assertEq(newStrategy.DEPOSITER(), depositor, "Depositer mismatch");
     }
 
-    function test_constructor_zeroVbToken_reverts() public {
-        address remoteCounterpart = address(0xBEEF);
+    function test_constructor_verifyRealVbTokenProperties() public useEthFork {
+        // Test that the real VB_USDC contract works as expected
+        uint256 testAmount = 1000e6;
 
-        vm.expectRevert("ZeroVbToken");
-        new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            address(0), // zero vbToken
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+        // Airdrop USDC
+        deal(USDC, address(this), testAmount);
+        IERC20(USDC).approve(VB_USDC, testAmount);
+
+        // Deposit into vbToken
+        uint256 sharesBefore = vbToken.balanceOf(address(this));
+        uint256 shares = vbToken.deposit(testAmount, address(this));
+
+        assertGt(shares, 0, "Should receive vbToken shares");
+        assertEq(
+            vbToken.balanceOf(address(this)),
+            sharesBefore + shares,
+            "Balance should increase"
+        );
+
+        // Verify convertToAssets works
+        uint256 assets = vbToken.convertToAssets(shares);
+        assertApproxEqAbs(
+            assets,
+            testAmount,
+            10,
+            "Assets should match deposit"
         );
     }
 
-    function test_constructor_assetMismatch_reverts() public {
+    function test_constructor_approvalSetToVbToken() public useEthFork {
         address remoteCounterpart = address(0xBEEF);
 
-        // VB_WETH has WETH as underlying, not USDC
-        vm.expectRevert("AssetMismatch");
-        new KatanaStrategy(
-            USDC, // USDC as asset
-            "Katana USDC Strategy",
-            VB_WETH, // but VB_WETH expects WETH
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
-        );
-    }
-
-    function test_constructor_zeroRemoteCounterpart_reverts() public {
-        vm.expectRevert("ZeroAddress");
-        new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            address(0), // zero remote counterpart
-            depositor
-        );
-    }
-
-    function test_constructor_zeroDepositor_reverts() public {
-        address remoteCounterpart = address(0xBEEF);
-
-        vm.expectRevert("ZeroAddress");
-        new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            address(0) // zero depositor
-        );
-    }
-
-    function test_constructor_zeroBridge_reverts() public {
-        address remoteCounterpart = address(0xBEEF);
-
-        vm.expectRevert("ZeroAddress");
-        new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            address(0), // zero bridge
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
-        );
-    }
-
-    function test_constructor_approvalSet() public {
-        address remoteCounterpart = address(0xBEEF);
-
-        KatanaStrategy newStrategy = new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+        IKatanaStrategy newStrategy = IKatanaStrategy(
+            address(
+                new KatanaStrategy(
+                    USDC,
+                    "Katana USDC Strategy",
+                    VB_USDC,
+                    UNIFIED_BRIDGE,
+                    KATANA_NETWORK_ID,
+                    remoteCounterpart,
+                    depositor
+                )
+            )
         );
 
         // Check approval to vbToken is max
@@ -161,48 +130,152 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
         assertEq(allowance, type(uint256).max, "Approval not set to max");
     }
 
-    function test_constructor_localNetworkId() public {
+    function test_constructor_zeroVbToken_reverts() public useEthFork {
         address remoteCounterpart = address(0xBEEF);
 
-        KatanaStrategy newStrategy = new KatanaStrategy(
+        vm.expectRevert("ZeroVbToken");
+        new KatanaStrategy(
+            USDC,
+            "Katana USDC Strategy",
+            address(0),
+            UNIFIED_BRIDGE,
+            KATANA_NETWORK_ID,
+            remoteCounterpart,
+            depositor
+        );
+    }
+
+    function test_constructor_assetMismatch_reverts() public useEthFork {
+        address remoteCounterpart = address(0xBEEF);
+
+        // VB_WETH has WETH as underlying, not USDC
+        vm.expectRevert("AssetMismatch");
+        new KatanaStrategy(
+            USDC,
+            "Katana USDC Strategy",
+            VB_WETH,
+            UNIFIED_BRIDGE,
+            KATANA_NETWORK_ID,
+            remoteCounterpart,
+            depositor
+        );
+    }
+
+    function test_constructor_zeroRemoteCounterpart_reverts()
+        public
+        useEthFork
+    {
+        vm.expectRevert("ZeroAddress");
+        new KatanaStrategy(
+            USDC,
+            "Katana USDC Strategy",
+            VB_USDC,
+            UNIFIED_BRIDGE,
+            KATANA_NETWORK_ID,
+            address(0),
+            depositor
+        );
+    }
+
+    function test_constructor_zeroDepositor_reverts() public useEthFork {
+        address remoteCounterpart = address(0xBEEF);
+
+        vm.expectRevert("ZeroAddress");
+        new KatanaStrategy(
             USDC,
             "Katana USDC Strategy",
             VB_USDC,
             UNIFIED_BRIDGE,
             KATANA_NETWORK_ID,
             remoteCounterpart,
+            address(0)
+        );
+    }
+
+    function test_constructor_zeroBridge_reverts() public useEthFork {
+        address remoteCounterpart = address(0xBEEF);
+
+        vm.expectRevert("ZeroAddress");
+        new KatanaStrategy(
+            USDC,
+            "Katana USDC Strategy",
+            VB_USDC,
+            address(0),
+            KATANA_NETWORK_ID,
+            remoteCounterpart,
             depositor
+        );
+    }
+
+    function test_constructor_localNetworkIdFromBridge() public useEthFork {
+        address remoteCounterpart = address(0xBEEF);
+
+        IKatanaStrategy newStrategy = IKatanaStrategy(
+            address(
+                new KatanaStrategy(
+                    USDC,
+                    "Katana USDC Strategy",
+                    VB_USDC,
+                    UNIFIED_BRIDGE,
+                    KATANA_NETWORK_ID,
+                    remoteCounterpart,
+                    depositor
+                )
+            )
         );
 
         // LOCAL_NETWORK_ID should be fetched from bridge
         assertEq(
             newStrategy.LOCAL_NETWORK_ID(),
             ETHEREUM_NETWORK_ID,
-            "Local network ID mismatch"
+            "Local network ID should be 0 (Ethereum)"
         );
     }
 }
 
-contract KatanaStrategyBridgeTest is KatanaSetup {
+/*//////////////////////////////////////////////////////////////
+        KATANA STRATEGY DEPOSIT AND BRIDGE TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaStrategyDepositBridgeTest
+/// @notice Tests for deposit and bridge functionality
+contract KatanaStrategyDepositBridgeTest is KatanaSetup {
     function setUp() public override {
         super.setUp();
         vm.selectFork(ethFork);
     }
 
-    // NOTE: The tests below are skipped because the VB_USDC contract
-    // (VaultBridgeToken) is not deployed on Ethereum mainnet - it's
-    // a Katana-specific contract. In production, these would be tested
-    // against a Katana testnet or with a deployed mock.
+    function test_deposit_callsVbTokenDepositAndBridge() public useEthFork {
+        uint256 depositAmount = 10_000e6;
 
-    // function test_bridgeAssets_viaDeposit() public { ... }
-    // function test_bridgeAssets_updatesRemoteAssets() public { ... }
-    // function test_bridgeAssets_multipleDeposits() public { ... }
+        // Fund depositor with USDC
+        airdropUSDC(depositor, depositAmount);
 
-    function test_onlyDepositorCanDeposit() public {
-        uint256 depositAmount = 10000e6;
+        uint256 usdcBefore = IERC20(USDC).balanceOf(address(strategy));
+        uint256 remoteAssetsBefore = strategy.remoteAssets();
 
-        airdropUSDC(user, depositAmount);
+        // Depositor approves and deposits
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
 
+        // Verify remoteAssets increased (funds were bridged)
+        assertEq(
+            strategy.remoteAssets(),
+            remoteAssetsBefore + depositAmount,
+            "Remote assets should increase by deposit amount"
+        );
+
+        // Verify no USDC left in strategy (all bridged via vbToken)
+        assertEq(
+            IERC20(USDC).balanceOf(address(strategy)),
+            usdcBefore,
+            "Strategy should have no USDC after bridge"
+        );
+    }
+
+    function test_deposit_onlyDepositorCanDeposit() public useEthFork {
         // User (not depositor) should have 0 available deposit limit
         assertEq(
             strategy.availableDepositLimit(user),
@@ -216,32 +289,250 @@ contract KatanaStrategyBridgeTest is KatanaSetup {
         );
     }
 
-    function test_onlyDepositorCanDeposit_attemptReverts() public {
-        uint256 depositAmount = 10000e6;
+    function test_deposit_nonDepositorReverts() public useEthFork {
+        uint256 depositAmount = 10_000e6;
 
         airdropUSDC(user, depositAmount);
 
-        // Attempt deposit from non-depositor should fail
         vm.startPrank(user);
         IERC20(USDC).approve(address(strategy), depositAmount);
-        vm.expectRevert(); // Will revert with "ERC4626: deposit more than max"
-        tokenizedStrategy.deposit(depositAmount, user);
+        vm.expectRevert(); // ERC4626: deposit more than max
+        strategy.deposit(depositAmount, user);
         vm.stopPrank();
+    }
+
+    function test_deposit_totalAssetsUpdates() public useEthFork {
+        uint256 depositAmount = 50_000e6;
+
+        uint256 totalAssetsBefore = strategy.totalAssets();
+
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // Total assets should increase by deposit amount
+        assertEq(
+            strategy.totalAssets(),
+            totalAssetsBefore + depositAmount,
+            "Total assets should increase"
+        );
+    }
+
+    function test_deposit_multipleDeposits() public useEthFork {
+        uint256 firstDeposit = 10_000e6;
+        uint256 secondDeposit = 25_000e6;
+
+        // First deposit
+        airdropUSDC(depositor, firstDeposit);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), firstDeposit);
+        strategy.deposit(firstDeposit, depositor);
+        vm.stopPrank();
+
+        assertEq(strategy.remoteAssets(), firstDeposit, "After first deposit");
+
+        // Second deposit
+        airdropUSDC(depositor, secondDeposit);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), secondDeposit);
+        strategy.deposit(secondDeposit, depositor);
+        vm.stopPrank();
+
+        assertEq(
+            strategy.remoteAssets(),
+            firstDeposit + secondDeposit,
+            "After second deposit"
+        );
+    }
+
+    function test_deposit_sharesIssuedCorrectly() public useEthFork {
+        uint256 depositAmount = 100_000e6;
+
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        uint256 shares = strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // First deposit should mint 1:1 shares
+        assertEq(shares, depositAmount, "Shares should equal deposit");
+        assertEq(
+            strategy.balanceOf(depositor),
+            shares,
+            "Depositor should have shares"
+        );
+    }
+
+    function test_fuzz_deposit(uint256 _amount) public useEthFork {
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+
+        airdropUSDC(depositor, _amount);
+
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), _amount);
+        strategy.deposit(_amount, depositor);
+        vm.stopPrank();
+
+        assertEq(
+            strategy.remoteAssets(),
+            _amount,
+            "Remote assets should match deposit"
+        );
     }
 }
 
+/*//////////////////////////////////////////////////////////////
+        KATANA STRATEGY VB TOKEN REDEMPTION TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaStrategyVbTokenRedemptionTest
+/// @notice Tests for vbToken redemption functionality
+contract KatanaStrategyVbTokenRedemptionTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(ethFork);
+    }
+
+    function test_redeemVaultTokens_convertsToUnderlying() public useEthFork {
+        uint256 vbAmount = 10_000e6;
+
+        // Get vbToken into strategy
+        getVbTokenIntoStrategy(vbAmount);
+
+        // Verify strategy has vbToken
+        uint256 vbBalance = vbToken.balanceOf(address(strategy));
+        assertGt(vbBalance, 0, "Strategy should have vbToken");
+
+        uint256 usdcBefore = IERC20(USDC).balanceOf(address(strategy));
+
+        // Keeper redeems vbToken
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        // Verify USDC received
+        uint256 usdcAfter = IERC20(USDC).balanceOf(address(strategy));
+        assertGt(
+            usdcAfter,
+            usdcBefore,
+            "Should have more USDC after redemption"
+        );
+
+        // Verify no vbToken left
+        assertEq(
+            vbToken.balanceOf(address(strategy)),
+            0,
+            "Should have no vbToken after redemption"
+        );
+    }
+
+    function test_redeemVaultTokens_onlyKeepers() public useEthFork {
+        // Non-keeper cannot call redeemVaultTokens
+        vm.prank(user);
+        vm.expectRevert("!keeper");
+        strategy.redeemVaultTokens();
+    }
+
+    function test_redeemVaultTokens_managementCanCall() public useEthFork {
+        // Management should also be able to call
+        vm.prank(management);
+        strategy.redeemVaultTokens(); // Should not revert
+    }
+
+    function test_redeemVaultTokens_noOpWhenNoBalance() public useEthFork {
+        // Should not revert when there's no vbToken to redeem
+        uint256 usdcBefore = IERC20(USDC).balanceOf(address(strategy));
+
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        uint256 usdcAfter = IERC20(USDC).balanceOf(address(strategy));
+        assertEq(usdcAfter, usdcBefore, "No change when no vbToken");
+    }
+
+    function test_harvestAndReport_automaticallyRedeems() public useEthFork {
+        mintAndDepositIntoStrategy(strategy, depositor, 10_000e6);
+
+        // Get vbToken into strategy
+        uint256 vbAmount = 1_000e6;
+        getVbTokenIntoStrategy(vbAmount);
+
+        uint256 vbBalanceBefore = vbToken.balanceOf(address(strategy));
+        assertGt(vbBalanceBefore, 0, "Should have vbToken before report");
+
+        // Simulate some remote assets being reported
+        simulateBridgeMessage(10_000e6);
+
+        // Trigger report which calls _harvestAndReport
+        vm.prank(keeper);
+        strategy.report();
+
+        // vbToken should be redeemed during report
+        assertEq(
+            vbToken.balanceOf(address(strategy)),
+            0,
+            "vbToken should be redeemed during report"
+        );
+    }
+
+    function test_redeemVaultTokens_largeAmount() public useEthFork {
+        uint256 vbAmount = 500_000e6; // 500k USDC
+
+        getVbTokenIntoStrategy(vbAmount);
+
+        uint256 vbBalance = vbToken.balanceOf(address(strategy));
+        assertGt(vbBalance, 0, "Should have vbToken");
+
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        assertEq(
+            vbToken.balanceOf(address(strategy)),
+            0,
+            "All vbToken should be redeemed"
+        );
+        assertGt(
+            IERC20(USDC).balanceOf(address(strategy)),
+            0,
+            "Should have USDC"
+        );
+    }
+
+    function test_fuzz_vbTokenRedemption(uint256 _amount) public useEthFork {
+        _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
+
+        getVbTokenIntoStrategy(_amount);
+
+        uint256 vbBalance = vbToken.balanceOf(address(strategy));
+        assertGt(vbBalance, 0, "Should have vbToken");
+
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        assertEq(vbToken.balanceOf(address(strategy)), 0, "No vbToken left");
+        assertGt(
+            IERC20(USDC).balanceOf(address(strategy)),
+            0,
+            "Should have USDC"
+        );
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA STRATEGY MESSAGE RECEPTION TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaStrategyMessageTest
+/// @notice Tests for onMessageReceived and remoteAssets updates
 contract KatanaStrategyMessageTest is KatanaSetup {
     function setUp() public override {
         super.setUp();
         vm.selectFork(ethFork);
     }
 
-    function test_onMessageReceived_success() public {
-        uint256 reportedAssets = 15000e6;
-
-        // No need to deposit first - just test message reception
-        // In production, remote assets would be set by prior deposits,
-        // but for testing message handling we can directly test the callback
+    function test_onMessageReceived_success() public useEthFork {
+        uint256 reportedAssets = 15_000e6;
 
         bytes memory data = abi.encode(reportedAssets);
 
@@ -252,18 +543,16 @@ contract KatanaStrategyMessageTest is KatanaSetup {
             data
         );
 
-        // Verify remote assets updated
         assertEq(
             strategy.remoteAssets(),
             reportedAssets,
-            "Remote assets not updated from message"
+            "Remote assets not updated"
         );
     }
 
-    function test_onMessageReceived_invalidBridge_reverts() public {
-        bytes memory data = abi.encode(uint256(10000e6));
+    function test_onMessageReceived_invalidBridge_reverts() public useEthFork {
+        bytes memory data = abi.encode(uint256(10_000e6));
 
-        // Call from non-bridge address should revert
         vm.prank(user);
         vm.expectRevert("InvalidBridge");
         strategy.onMessageReceived(
@@ -273,23 +562,21 @@ contract KatanaStrategyMessageTest is KatanaSetup {
         );
     }
 
-    function test_onMessageReceived_invalidNetwork_reverts() public {
-        bytes memory data = abi.encode(uint256(10000e6));
+    function test_onMessageReceived_invalidNetwork_reverts() public useEthFork {
+        bytes memory data = abi.encode(uint256(10_000e6));
 
-        // Call with wrong network ID should revert
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidNetwork");
         strategy.onMessageReceived(
             address(remoteStrategy),
-            ETHEREUM_NETWORK_ID, // Wrong network (should be Katana)
+            ETHEREUM_NETWORK_ID, // Wrong network
             data
         );
     }
 
-    function test_onMessageReceived_invalidSender_reverts() public {
-        bytes memory data = abi.encode(uint256(10000e6));
+    function test_onMessageReceived_invalidSender_reverts() public useEthFork {
+        bytes memory data = abi.encode(uint256(10_000e6));
 
-        // Call with wrong origin address should revert
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidSender");
         strategy.onMessageReceived(
@@ -299,7 +586,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
         );
     }
 
-    function test_onMessageReceived_emptyMessage_reverts() public {
+    function test_onMessageReceived_emptyMessage_reverts() public useEthFork {
         bytes memory emptyData = "";
 
         vm.prank(UNIFIED_BRIDGE);
@@ -311,73 +598,51 @@ contract KatanaStrategyMessageTest is KatanaSetup {
         );
     }
 
-    function test_onMessageReceived_updatesForProfit() public {
-        // Set initial remote assets via message
-        uint256 initialAssets = 10000e6;
-        bytes memory initialData = abi.encode(initialAssets);
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            initialData
-        );
+    function test_onMessageReceived_profitReport() public useEthFork {
+        // Set initial state
+        uint256 initialAssets = 10_000e6;
+        simulateBridgeMessage(initialAssets);
+        assertEq(strategy.remoteAssets(), initialAssets);
 
-        uint256 remoteAssetsBefore = strategy.remoteAssets();
-        assertEq(remoteAssetsBefore, initialAssets, "Initial remote assets");
-
-        // Simulate profit: remote now has more assets
+        // Profit report
         uint256 profitAmount = 500e6;
-        uint256 newTotalAssets = initialAssets + profitAmount;
-        bytes memory data = abi.encode(newTotalAssets);
+        uint256 newTotal = initialAssets + profitAmount;
+        simulateBridgeMessage(newTotal);
 
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            data
-        );
-
-        // Remote assets should reflect the new total (with profit)
-        assertEq(
-            strategy.remoteAssets(),
-            newTotalAssets,
-            "Remote assets should include profit"
-        );
+        assertEq(strategy.remoteAssets(), newTotal, "Should reflect profit");
     }
 
-    function test_onMessageReceived_updatesForLoss() public {
-        // Set initial remote assets via message
-        uint256 initialAssets = 10000e6;
-        bytes memory initialData = abi.encode(initialAssets);
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            initialData
-        );
+    function test_onMessageReceived_lossReport() public useEthFork {
+        // Set initial state
+        uint256 initialAssets = 10_000e6;
+        simulateBridgeMessage(initialAssets);
 
-        // Simulate loss: remote now has fewer assets
+        // Loss report
         uint256 lossAmount = 500e6;
-        uint256 newTotalAssets = initialAssets - lossAmount;
-        bytes memory data = abi.encode(newTotalAssets);
+        uint256 newTotal = initialAssets - lossAmount;
+        simulateBridgeMessage(newTotal);
 
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            data
-        );
+        assertEq(strategy.remoteAssets(), newTotal, "Should reflect loss");
+    }
 
-        // Remote assets should reflect the new total (with loss)
+    function test_onMessageReceived_zeroReport() public useEthFork {
+        // Set initial state
+        uint256 initialAssets = 10_000e6;
+        simulateBridgeMessage(initialAssets);
+
+        // Report zero (complete loss)
+        simulateBridgeMessage(0);
+
         assertEq(
             strategy.remoteAssets(),
-            newTotalAssets,
-            "Remote assets should reflect loss"
+            0,
+            "Should be zero after complete loss"
         );
     }
 
-    function test_onMessageReceived_fuzz(uint256 _reportedAssets) public {
-        // Bound to reasonable values
+    function test_fuzz_onMessageReceived(
+        uint256 _reportedAssets
+    ) public useEthFork {
         _reportedAssets = bound(_reportedAssets, 1, 1_000_000_000e6);
 
         bytes memory data = abi.encode(_reportedAssets);
@@ -389,171 +654,206 @@ contract KatanaStrategyMessageTest is KatanaSetup {
             data
         );
 
-        assertEq(
-            strategy.remoteAssets(),
-            _reportedAssets,
-            "Remote assets should match reported"
-        );
+        assertEq(strategy.remoteAssets(), _reportedAssets);
     }
 }
 
+/*//////////////////////////////////////////////////////////////
+        KATANA STRATEGY WITHDRAWAL FLOW TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaStrategyWithdrawalTest
+/// @notice Tests for withdrawal flow including vbToken redemption
+contract KatanaStrategyWithdrawalTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(ethFork);
+    }
+
+    function test_availableWithdrawLimit_noLocalBalance() public useEthFork {
+        // Initially no local balance
+        assertEq(
+            strategy.availableWithdrawLimit(depositor),
+            0,
+            "No funds available initially"
+        );
+    }
+
+    function test_availableWithdrawLimit_withLocalBalance() public useEthFork {
+        uint256 localAmount = 50_000e6;
+
+        // Airdrop USDC directly to strategy (simulating redeemed vbToken)
+        airdropUSDC(address(strategy), localAmount);
+
+        assertEq(
+            strategy.availableWithdrawLimit(depositor),
+            localAmount,
+            "Should equal local balance"
+        );
+    }
+
+    function test_withdrawalFlow_afterVbTokenRedemption() public useEthFork {
+        uint256 depositAmount = 10_000e6;
+
+        // 1. Depositor deposits (funds go to remote)
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // At this point, user has shares but no withdrawable balance
+        uint256 withdrawLimit = strategy.availableWithdrawLimit(depositor);
+        assertEq(withdrawLimit, 0, "No funds available yet");
+
+        // 2. Simulate vbToken arriving from bridge claim
+        getVbTokenIntoStrategy(depositAmount);
+
+        // 3. Keeper redeems vbToken to USDC
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        // 4. Now USDC is available for withdrawal
+        uint256 strategyBalance = IERC20(USDC).balanceOf(address(strategy));
+        assertGt(strategyBalance, 0, "Strategy should have USDC");
+
+        withdrawLimit = strategy.availableWithdrawLimit(depositor);
+        assertEq(withdrawLimit, strategyBalance, "Should be able to withdraw");
+
+        // 5. Depositor can withdraw
+        uint256 shares = strategy.balanceOf(depositor);
+        vm.prank(depositor);
+        strategy.redeem(shares, depositor, depositor);
+
+        // Verify depositor received funds
+        assertGt(
+            IERC20(USDC).balanceOf(depositor),
+            0,
+            "Depositor should have USDC"
+        );
+    }
+
+    function test_partialWithdrawal() public useEthFork {
+        uint256 depositAmount = 100_000e6;
+
+        // Deposit
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // Get vbToken and redeem (simulating partial return)
+        uint256 partialReturn = 50_000e6;
+        getVbTokenIntoStrategy(partialReturn);
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        // Only partial withdrawal should be available
+        uint256 withdrawLimit = strategy.availableWithdrawLimit(depositor);
+        assertGt(withdrawLimit, 0, "Some funds available");
+        assertLt(withdrawLimit, depositAmount, "Not all funds available");
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA STRATEGY RESCUE TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaStrategyRescueTest
+/// @notice Tests for rescue functionality
 contract KatanaStrategyRescueTest is KatanaSetup {
-    ERC20 public rescueToken;
+    MockERC20 public rescueToken;
 
     function setUp() public override {
         super.setUp();
         vm.selectFork(ethFork);
-
-        // Deploy a mock token to rescue
         rescueToken = new MockERC20("Rescue Token", "RESCUE", 18);
     }
 
-    function test_rescue_success() public {
+    function test_rescue_success() public useEthFork {
         uint256 rescueAmount = 1000e18;
 
-        // Airdrop rescue token to strategy
         deal(address(rescueToken), address(strategy), rescueAmount);
-        assertEq(
-            rescueToken.balanceOf(address(strategy)),
-            rescueAmount,
-            "Strategy should have rescue tokens"
-        );
 
-        // Management rescues tokens
         vm.prank(management);
         strategy.rescue(address(rescueToken), user, rescueAmount);
 
-        // Verify tokens transferred
-        assertEq(
-            rescueToken.balanceOf(user),
-            rescueAmount,
-            "User should receive rescued tokens"
-        );
-        assertEq(
-            rescueToken.balanceOf(address(strategy)),
-            0,
-            "Strategy should have no rescue tokens"
-        );
+        assertEq(rescueToken.balanceOf(user), rescueAmount);
+        assertEq(rescueToken.balanceOf(address(strategy)), 0);
     }
 
-    function test_rescue_asset_reverts() public {
+    function test_rescue_asset_reverts() public useEthFork {
         uint256 rescueAmount = 1000e6;
 
-        // Airdrop USDC (the asset) to strategy
         airdropUSDC(address(strategy), rescueAmount);
 
-        // Attempting to rescue the asset should revert
         vm.prank(management);
         vm.expectRevert("InvalidToken");
         strategy.rescue(address(asset), user, rescueAmount);
     }
 
-    function test_rescue_nonManagement_reverts() public {
-        uint256 rescueAmount = 1000e18;
-
-        deal(address(rescueToken), address(strategy), rescueAmount);
-
-        // Non-management cannot rescue
-        vm.prank(user);
-        vm.expectRevert("!management");
-        strategy.rescue(address(rescueToken), user, rescueAmount);
-
-        // Keeper cannot rescue
-        vm.prank(keeper);
-        vm.expectRevert("!management");
-        strategy.rescue(address(rescueToken), user, rescueAmount);
-    }
-
-    function test_rescue_partialAmount() public {
+    function test_rescue_partialAmount() public useEthFork {
         uint256 totalAmount = 1000e18;
-        uint256 rescueAmount = 400e18;
+        uint256 rescueAmount = 500e18;
 
         deal(address(rescueToken), address(strategy), totalAmount);
 
         vm.prank(management);
         strategy.rescue(address(rescueToken), user, rescueAmount);
 
-        assertEq(
-            rescueToken.balanceOf(user),
-            rescueAmount,
-            "User should receive partial amount"
-        );
+        assertEq(rescueToken.balanceOf(user), rescueAmount);
         assertEq(
             rescueToken.balanceOf(address(strategy)),
-            totalAmount - rescueAmount,
-            "Strategy should have remaining"
-        );
-    }
-}
-
-contract KatanaStrategyBaseLxLyTest is KatanaSetup {
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-    }
-
-    function test_localNetworkId() public {
-        // LOCAL_NETWORK_ID should be fetched from bridge
-        uint32 expectedId = lxlyBridge.networkID();
-        assertEq(
-            strategy.LOCAL_NETWORK_ID(),
-            expectedId,
-            "Local network ID should match bridge"
-        );
-        assertEq(
-            strategy.LOCAL_NETWORK_ID(),
-            ETHEREUM_NETWORK_ID,
-            "Should be Ethereum network ID"
+            totalAmount - rescueAmount
         );
     }
 
-    function test_lxlyBridgeSet() public {
-        assertEq(
-            address(strategy.LXLY_BRIDGE()),
-            UNIFIED_BRIDGE,
-            "Bridge should be set"
-        );
-    }
+    function test_rescue_nonManagement_reverts() public useEthFork {
+        uint256 rescueAmount = 1000e18;
 
-    function test_getWrappedToken() public {
-        // This tests the inherited getWrappedToken function from BaseLxLy
-        // It queries the bridge for wrapped token addresses
-        address wrappedAddress = strategy.getWrappedToken(
-            ETHEREUM_NETWORK_ID,
-            USDC
-        );
-        // On Ethereum, querying for Ethereum native token returns address(0)
-        // as it's not wrapped on its native chain
-        // This just verifies the function works
-        assertEq(
-            wrappedAddress,
-            address(0),
-            "Native token has no wrapped version on same chain"
-        );
+        deal(address(rescueToken), address(strategy), rescueAmount);
+
+        vm.prank(user);
+        vm.expectRevert("!management");
+        strategy.rescue(address(rescueToken), user, rescueAmount);
+
+        vm.prank(keeper);
+        vm.expectRevert("!management");
+        strategy.rescue(address(rescueToken), user, rescueAmount);
     }
 }
 
 /*//////////////////////////////////////////////////////////////
-                KATANA REMOTE STRATEGY TESTS
+        KATANA REMOTE STRATEGY CONSTRUCTOR TESTS
 //////////////////////////////////////////////////////////////*/
 
+/// @title KatanaRemoteStrategyConstructorTest
+/// @notice Tests for KatanaRemoteStrategy constructor
 contract KatanaRemoteStrategyConstructorTest is KatanaSetup {
     function setUp() public override {
-        // Only create fork, don't run full setup
+        // Only create forks
         string memory ethRpc = vm.envString("ETH_RPC_URL");
-        ethFork = vm.createFork(ethRpc);
-        vm.selectFork(ethFork);
+        string memory katRpc = vm.envString("KAT_RPC_URL");
 
-        asset = ERC20(USDC);
-        lxlyBridge = IPolygonZkEVMBridgeV2(UNIFIED_BRIDGE);
+        require(bytes(ethRpc).length > 0, "ETH_RPC_URL required");
+        require(bytes(katRpc).length > 0, "KAT_RPC_URL required");
+
+        ethFork = vm.createFork(ethRpc);
+        katFork = vm.createFork(katRpc);
+
+        vm.selectFork(katFork);
+
+        // Deploy mock token on Katana
+        katanaUsdc = address(new MockERC20("USDC", "USDC", 6));
     }
 
-    function test_remote_constructor_success() public {
-        MockVault vault = new MockVault(address(asset));
+    function test_remote_constructor_success() public useKatFork {
+        MockVault vault = new MockVault(katanaUsdc);
         address originCounterpart = address(0xBEEF);
 
         KatanaRemoteStrategy remote = new KatanaRemoteStrategy(
-            address(asset),
+            katanaUsdc,
             governance,
             UNIFIED_BRIDGE,
             ETHEREUM_NETWORK_ID,
@@ -561,8 +861,7 @@ contract KatanaRemoteStrategyConstructorTest is KatanaSetup {
             address(vault)
         );
 
-        // Verify immutables
-        assertEq(address(remote.asset()), address(asset), "Asset mismatch");
+        assertEq(address(remote.asset()), katanaUsdc, "Asset mismatch");
         assertEq(
             address(remote.LXLY_BRIDGE()),
             UNIFIED_BRIDGE,
@@ -576,113 +875,98 @@ contract KatanaRemoteStrategyConstructorTest is KatanaSetup {
         assertEq(
             remote.REMOTE_COUNTERPART(),
             originCounterpart,
-            "Remote counterpart mismatch"
+            "Counterpart mismatch"
         );
         assertEq(address(remote.vault()), address(vault), "Vault mismatch");
         assertEq(remote.governance(), governance, "Governance mismatch");
     }
 
-    function test_remote_constructor_zeroAsset_reverts() public {
-        MockVault vault = new MockVault(address(asset));
-        address originCounterpart = address(0xBEEF);
+    function test_remote_constructor_zeroAsset_reverts() public useKatFork {
+        MockVault vault = new MockVault(katanaUsdc);
 
         vm.expectRevert("ZeroAddress");
         new KatanaRemoteStrategy(
-            address(0), // zero asset
+            address(0),
             governance,
             UNIFIED_BRIDGE,
             ETHEREUM_NETWORK_ID,
-            originCounterpart,
+            address(0xBEEF),
             address(vault)
         );
     }
 
-    function test_remote_constructor_zeroCounterpart_reverts() public {
-        MockVault vault = new MockVault(address(asset));
+    function test_remote_constructor_zeroCounterpart_reverts()
+        public
+        useKatFork
+    {
+        MockVault vault = new MockVault(katanaUsdc);
 
         vm.expectRevert("ZeroAddress");
         new KatanaRemoteStrategy(
-            address(asset),
+            katanaUsdc,
             governance,
             UNIFIED_BRIDGE,
             ETHEREUM_NETWORK_ID,
-            address(0), // zero counterpart
+            address(0),
             address(vault)
         );
     }
 
-    function test_remote_constructor_wrongVault_reverts() public {
-        // Create vault with different asset
-        ERC20 wrongAsset = new MockERC20("Wrong", "WRONG", 18);
-        MockVault wrongVault = new MockVault(address(wrongAsset));
-        address originCounterpart = address(0xBEEF);
+    function test_remote_constructor_wrongVault_reverts() public useKatFork {
+        address wrongAsset = address(new MockERC20("Wrong", "WRONG", 18));
+        MockVault wrongVault = new MockVault(wrongAsset);
 
         vm.expectRevert("wrong vault");
         new KatanaRemoteStrategy(
-            address(asset),
+            katanaUsdc,
             governance,
             UNIFIED_BRIDGE,
             ETHEREUM_NETWORK_ID,
-            originCounterpart,
+            address(0xBEEF),
             address(wrongVault)
         );
     }
 
-    function test_remote_constructor_zeroBridge_reverts() public {
-        MockVault vault = new MockVault(address(asset));
-        address originCounterpart = address(0xBEEF);
-
-        vm.expectRevert("ZeroAddress");
-        new KatanaRemoteStrategy(
-            address(asset),
-            governance,
-            address(0), // zero bridge
-            ETHEREUM_NETWORK_ID,
-            originCounterpart,
-            address(vault)
-        );
-    }
-
-    function test_remote_constructor_vaultApprovalSet() public {
-        MockVault vault = new MockVault(address(asset));
-        address originCounterpart = address(0xBEEF);
+    function test_remote_constructor_vaultApprovalSet() public useKatFork {
+        MockVault vault = new MockVault(katanaUsdc);
 
         KatanaRemoteStrategy remote = new KatanaRemoteStrategy(
-            address(asset),
+            katanaUsdc,
             governance,
             UNIFIED_BRIDGE,
             ETHEREUM_NETWORK_ID,
-            originCounterpart,
+            address(0xBEEF),
             address(vault)
         );
 
-        // Check approval to vault is max
-        uint256 allowance = asset.allowance(address(remote), address(vault));
-        assertEq(allowance, type(uint256).max, "Vault approval not set to max");
+        uint256 allowance = IERC20(katanaUsdc).allowance(
+            address(remote),
+            address(vault)
+        );
+        assertEq(allowance, type(uint256).max, "Vault approval not set");
     }
 }
 
-contract KatanaRemoteStrategyBridgeTest is KatanaSetup {
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY VAULT TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyVaultTest
+/// @notice Tests for remote strategy vault interactions
+contract KatanaRemoteStrategyVaultTest is KatanaSetup {
     function setUp() public override {
         super.setUp();
-        vm.selectFork(ethFork);
+        vm.selectFork(katFork);
     }
 
-    // NOTE: Tests involving actual bridge calls (processWithdrawal, report)
-    // fail because the LxLy bridge rejects Katana (network ID 20) as a valid
-    // destination from Ethereum mainnet. These tests verify the vault interactions work.
+    function test_remote_pushFunds_depositsToVault() public useKatFork {
+        uint256 depositAmount = 10_000e6;
 
-    function test_remote_pushFunds_depositsToVault() public {
-        uint256 depositAmount = 10000e6;
-
-        // Fund remote strategy
         airdropUSDC(address(remoteStrategy), depositAmount);
 
-        // Push to vault
         vm.prank(keeper);
         remoteStrategy.pushFunds(depositAmount);
 
-        // Verify funds in vault
         assertApproxEqAbs(
             remoteStrategy.valueOfDeployedAssets(),
             depositAmount,
@@ -690,55 +974,49 @@ contract KatanaRemoteStrategyBridgeTest is KatanaSetup {
             "Funds should be in vault"
         );
 
-        // Verify no loose balance
         assertEq(
-            IERC20(USDC).balanceOf(address(remoteStrategy)),
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
             0,
-            "Should have no loose balance"
+            "No loose balance"
         );
     }
 
-    function test_remote_pullFunds_withdrawsFromVault() public {
-        uint256 depositAmount = 10000e6;
-        uint256 pullAmount = 5000e6;
+    function test_remote_pullFunds_withdrawsFromVault() public useKatFork {
+        uint256 depositAmount = 10_000e6;
+        uint256 pullAmount = 5_000e6;
 
-        // Fund and push to vault
         airdropUSDC(address(remoteStrategy), depositAmount);
         vm.prank(keeper);
         remoteStrategy.pushFunds(depositAmount);
 
-        // Pull funds
         vm.prank(keeper);
         remoteStrategy.pullFunds(pullAmount);
 
-        // Verify partial withdrawal
         assertApproxEqAbs(
             remoteStrategy.valueOfDeployedAssets(),
             depositAmount - pullAmount,
             100,
             "Vault should have remaining"
         );
+
         assertApproxEqAbs(
-            IERC20(USDC).balanceOf(address(remoteStrategy)),
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
             pullAmount,
             100,
             "Should have loose balance"
         );
     }
 
-    function test_remote_totalAssets() public {
-        uint256 vaultAmount = 8000e6;
-        uint256 looseAmount = 2000e6;
+    function test_remote_totalAssets() public useKatFork {
+        uint256 vaultAmount = 8_000e6;
+        uint256 looseAmount = 2_000e6;
 
-        // Push some to vault
         airdropUSDC(address(remoteStrategy), vaultAmount);
         vm.prank(keeper);
         remoteStrategy.pushFunds(vaultAmount);
 
-        // Add loose balance
         airdropUSDC(address(remoteStrategy), looseAmount);
 
-        // Total should include both
         uint256 total = remoteStrategy.totalAssets();
         assertApproxEqAbs(
             total,
@@ -747,378 +1025,54 @@ contract KatanaRemoteStrategyBridgeTest is KatanaSetup {
             "Should include vault + loose"
         );
     }
-}
 
-contract KatanaRemoteStrategyMessageTest is KatanaSetup {
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-    }
+    function test_remote_pushFunds_onlyKeepers() public useKatFork {
+        airdropUSDC(address(remoteStrategy), 1_000e6);
 
-    function test_remote_onMessageReceived_reverts() public {
-        bytes memory data = abi.encode(uint256(10000e6));
-
-        // onMessageReceived should always revert on remote strategy
-        vm.prank(UNIFIED_BRIDGE);
-        vm.expectRevert("NotSupported");
-        remoteStrategy.onMessageReceived(
-            address(strategy),
-            ETHEREUM_NETWORK_ID,
-            data
-        );
-    }
-
-    function test_remote_onMessageReceived_revertsFromAnyone() public {
-        bytes memory data = abi.encode(uint256(10000e6));
-
-        // Should revert regardless of caller
         vm.prank(user);
-        vm.expectRevert("NotSupported");
-        remoteStrategy.onMessageReceived(
-            address(strategy),
-            ETHEREUM_NETWORK_ID,
-            data
-        );
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.pushFunds(1_000e6);
+    }
+
+    function test_remote_pullFunds_onlyKeepers() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.pullFunds(1_000e6);
+    }
+
+    function test_remote_pushFunds_revertsWhenShutdown() public useKatFork {
+        airdropUSDC(address(remoteStrategy), 1_000e6);
+
+        vm.prank(governance);
+        remoteStrategy.setIsShutdown(true);
 
         vm.prank(keeper);
-        vm.expectRevert("NotSupported");
-        remoteStrategy.onMessageReceived(
-            address(strategy),
-            ETHEREUM_NETWORK_ID,
-            data
-        );
-
-        vm.prank(governance);
-        vm.expectRevert("NotSupported");
-        remoteStrategy.onMessageReceived(
-            address(strategy),
-            ETHEREUM_NETWORK_ID,
-            data
-        );
-    }
-}
-
-contract KatanaRemoteStrategyRescueTest is KatanaSetup {
-    ERC20 public rescueToken;
-
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-
-        rescueToken = new MockERC20("Rescue Token", "RESCUE", 18);
+        vm.expectRevert("Shutdown");
+        remoteStrategy.pushFunds(1_000e6);
     }
 
-    function test_remote_rescue_success() public {
-        uint256 rescueAmount = 1000e18;
+    function test_remote_pullFunds_worksWhenShutdown() public useKatFork {
+        uint256 depositAmount = 10_000e6;
 
-        deal(address(rescueToken), address(remoteStrategy), rescueAmount);
+        airdropUSDC(address(remoteStrategy), depositAmount);
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
 
         vm.prank(governance);
-        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
+        remoteStrategy.setIsShutdown(true);
 
-        assertEq(
-            rescueToken.balanceOf(user),
-            rescueAmount,
-            "User should receive rescued tokens"
-        );
-        assertEq(
-            rescueToken.balanceOf(address(remoteStrategy)),
+        // Pull funds should still work when shutdown
+        vm.prank(keeper);
+        remoteStrategy.pullFunds(5_000e6);
+
+        assertGt(
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
             0,
-            "Remote strategy should have no rescue tokens"
+            "Should have loose balance after pull"
         );
     }
 
-    function test_remote_rescue_asset_reverts() public {
-        uint256 rescueAmount = 1000e6;
-
-        airdropUSDC(address(remoteStrategy), rescueAmount);
-
-        vm.prank(governance);
-        vm.expectRevert("InvalidToken");
-        remoteStrategy.rescue(address(asset), user, rescueAmount);
-    }
-
-    function test_remote_rescue_vault_reverts() public {
-        // First deposit into vault to get shares
-        uint256 depositAmount = 1000e6;
-        airdropUSDC(address(remoteStrategy), depositAmount);
-        vm.prank(keeper);
-        remoteStrategy.pushFunds(depositAmount);
-
-        // Try to rescue vault shares
-        uint256 vaultBalance = remoteVault.balanceOf(address(remoteStrategy));
-        assertGt(vaultBalance, 0, "Should have vault shares");
-
-        vm.prank(governance);
-        vm.expectRevert("InvalidToken");
-        remoteStrategy.rescue(address(remoteVault), user, vaultBalance);
-    }
-
-    function test_remote_rescue_nonGovernance_reverts() public {
-        uint256 rescueAmount = 1000e18;
-
-        deal(address(rescueToken), address(remoteStrategy), rescueAmount);
-
-        // Non-governance cannot rescue
-        vm.prank(user);
-        vm.expectRevert("!governance");
-        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
-
-        // Keeper cannot rescue
-        vm.prank(keeper);
-        vm.expectRevert("!governance");
-        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
-
-        // Management cannot rescue (remote uses governance, not management)
-        vm.prank(management);
-        vm.expectRevert("!governance");
-        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
-    }
-
-    function test_remote_rescue_partialAmount() public {
-        uint256 totalAmount = 1000e18;
-        uint256 rescueAmount = 400e18;
-
-        deal(address(rescueToken), address(remoteStrategy), totalAmount);
-
-        vm.prank(governance);
-        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
-
-        assertEq(
-            rescueToken.balanceOf(user),
-            rescueAmount,
-            "User should receive partial"
-        );
-        assertEq(
-            rescueToken.balanceOf(address(remoteStrategy)),
-            totalAmount - rescueAmount,
-            "Remote should have remaining"
-        );
-    }
-}
-
-contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-    }
-
-    function test_remote_setKeeper() public {
-        address newKeeper = address(0xBEEF);
-
-        // Governance can set keeper
-        vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, true);
-        assertTrue(remoteStrategy.keepers(newKeeper), "Keeper should be set");
-
-        // Can also remove
-        vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, false);
-        assertFalse(
-            remoteStrategy.keepers(newKeeper),
-            "Keeper should be removed"
-        );
-    }
-
-    function test_remote_onlyKeepersFunctions() public {
-        // Non-keeper cannot call keeper functions
-        vm.prank(user);
-        vm.expectRevert("NotKeeper");
-        remoteStrategy.report();
-
-        vm.prank(user);
-        vm.expectRevert("NotKeeper");
-        remoteStrategy.pushFunds(1000e6);
-
-        vm.prank(user);
-        vm.expectRevert("NotKeeper");
-        remoteStrategy.pullFunds(1000e6);
-
-        vm.prank(user);
-        vm.expectRevert("NotKeeper");
-        remoteStrategy.processWithdrawal(1000e6);
-    }
-
-    function test_remote_keeperCanPushFunds() public {
-        airdropUSDC(address(remoteStrategy), 1000e6);
-        vm.prank(keeper);
-        remoteStrategy.pushFunds(1000e6); // Should succeed
-    }
-
-    function test_remote_governanceCanPushFunds() public {
-        // Governance should be able to call keeper functions
-        airdropUSDC(address(remoteStrategy), 1000e6);
-        vm.prank(governance);
-        remoteStrategy.pushFunds(1000e6); // Should succeed
-    }
-
-    // NOTE: report() test skipped because it calls bridgeMessage which
-    // fails with DestinationNetworkInvalid on Ethereum mainnet fork
-}
-
-contract KatanaRemoteStrategyBaseLxLyTest is KatanaSetup {
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-    }
-
-    function test_remote_localNetworkId() public {
-        // LOCAL_NETWORK_ID should be fetched from bridge
-        uint32 expectedId = lxlyBridge.networkID();
-        assertEq(
-            remoteStrategy.LOCAL_NETWORK_ID(),
-            expectedId,
-            "Local network ID should match bridge"
-        );
-    }
-
-    function test_remote_lxlyBridgeSet() public {
-        assertEq(
-            address(remoteStrategy.LXLY_BRIDGE()),
-            UNIFIED_BRIDGE,
-            "Bridge should be set"
-        );
-    }
-}
-
-/*//////////////////////////////////////////////////////////////
-                    INTEGRATION TESTS
-//////////////////////////////////////////////////////////////*/
-
-contract KatanaIntegrationTest is KatanaSetup {
-    function setUp() public override {
-        super.setUp();
-        vm.selectFork(ethFork);
-    }
-
-    // NOTE: Full E2E tests are limited because:
-    // 1. VB_USDC contract not deployed on Ethereum mainnet (origin bridging fails)
-    // 2. LxLy bridge rejects Katana as destination (remote bridging fails)
-    //
-    // These tests simulate the message flow by directly calling onMessageReceived
-
-    function test_integration_messageUpdatesRemoteAssets() public {
-        // Simulate deposit on origin (without actual bridging)
-        uint256 initialAssets = 10000e6;
-
-        // Manually set initial remote assets (simulating successful bridge)
-        bytes memory initialData = abi.encode(initialAssets);
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            initialData
-        );
-
-        assertEq(
-            strategy.remoteAssets(),
-            initialAssets,
-            "Initial remote assets"
-        );
-
-        // Simulate profit report
-        uint256 profitAmount = 500e6;
-        uint256 newTotal = initialAssets + profitAmount;
-        bytes memory profitData = abi.encode(newTotal);
-
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            profitData
-        );
-
-        assertEq(
-            strategy.remoteAssets(),
-            newTotal,
-            "Remote assets after profit"
-        );
-    }
-
-    function test_integration_remoteTotalAssetsCalculation() public {
-        uint256 vaultDeposit = 8000e6;
-        uint256 looseBalance = 2000e6;
-
-        // Fund remote and push to vault
-        airdropUSDC(address(remoteStrategy), vaultDeposit);
-        vm.prank(keeper);
-        remoteStrategy.pushFunds(vaultDeposit);
-
-        // Add loose balance
-        airdropUSDC(address(remoteStrategy), looseBalance);
-
-        // Verify total
-        uint256 total = remoteStrategy.totalAssets();
-        assertApproxEqAbs(
-            total,
-            vaultDeposit + looseBalance,
-            10,
-            "Total assets should include both"
-        );
-
-        // Verify components
-        assertApproxEqAbs(
-            remoteStrategy.valueOfDeployedAssets(),
-            vaultDeposit,
-            10,
-            "Vault value"
-        );
-        assertEq(
-            IERC20(USDC).balanceOf(address(remoteStrategy)),
-            looseBalance,
-            "Loose balance"
-        );
-    }
-
-    function test_integration_remoteVaultProfitTracking() public {
-        uint256 depositAmount = 10000e6;
-        uint256 profitAmount = 500e6;
-
-        // Push to vault
-        airdropUSDC(address(remoteStrategy), depositAmount);
-        vm.prank(keeper);
-        remoteStrategy.pushFunds(depositAmount);
-
-        uint256 valueBeforeProfit = remoteStrategy.valueOfDeployedAssets();
-        assertApproxEqAbs(
-            valueBeforeProfit,
-            depositAmount,
-            10,
-            "Value before profit"
-        );
-
-        // Simulate vault profit (add assets to vault)
-        airdropUSDC(address(remoteVault), profitAmount);
-        MockVault(address(remoteVault)).addProfit(profitAmount);
-
-        uint256 valueAfterProfit = remoteStrategy.valueOfDeployedAssets();
-        assertApproxEqAbs(
-            valueAfterProfit,
-            depositAmount + profitAmount,
-            100,
-            "Value after profit"
-        );
-    }
-
-    function test_fuzz_messageUpdates(uint256 _amount) public {
-        _amount = bound(_amount, 1, 1_000_000_000e6);
-
-        bytes memory data = abi.encode(_amount);
-        vm.prank(UNIFIED_BRIDGE);
-        strategy.onMessageReceived(
-            address(remoteStrategy),
-            KATANA_NETWORK_ID,
-            data
-        );
-
-        assertEq(
-            strategy.remoteAssets(),
-            _amount,
-            "Remote assets should match message"
-        );
-    }
-
-    function test_fuzz_remotePushFunds(uint256 _amount) public {
+    function test_fuzz_remote_pushFunds(uint256 _amount) public useKatFork {
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
         airdropUSDC(address(remoteStrategy), _amount);
@@ -1135,25 +1089,657 @@ contract KatanaIntegrationTest is KatanaSetup {
 }
 
 /*//////////////////////////////////////////////////////////////
-                    HELPER CONTRACTS
+        KATANA REMOTE STRATEGY MESSAGE TESTS
 //////////////////////////////////////////////////////////////*/
 
-contract MockERC20 is ERC20 {
-    uint8 private _decimals;
-
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_
-    ) ERC20(name_, symbol_) {
-        _decimals = decimals_;
+/// @title KatanaRemoteStrategyMessageTest
+/// @notice Tests for remote strategy message handling
+contract KatanaRemoteStrategyMessageTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
     }
 
-    function decimals() public view override returns (uint8) {
-        return _decimals;
+    function test_remote_onMessageReceived_reverts() public useKatFork {
+        bytes memory data = abi.encode(uint256(10_000e6));
+
+        // onMessageReceived should always revert on remote strategy
+        vm.prank(UNIFIED_BRIDGE);
+        vm.expectRevert("NotSupported");
+        remoteStrategy.onMessageReceived(
+            address(strategy),
+            ETHEREUM_NETWORK_ID,
+            data
+        );
     }
 
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
+    function test_remote_onMessageReceived_revertsFromAnyone()
+        public
+        useKatFork
+    {
+        bytes memory data = abi.encode(uint256(10_000e6));
+
+        vm.prank(user);
+        vm.expectRevert("NotSupported");
+        remoteStrategy.onMessageReceived(
+            address(strategy),
+            ETHEREUM_NETWORK_ID,
+            data
+        );
+
+        vm.prank(governance);
+        vm.expectRevert("NotSupported");
+        remoteStrategy.onMessageReceived(
+            address(strategy),
+            ETHEREUM_NETWORK_ID,
+            data
+        );
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY REPORT TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyReportTest
+/// @notice Tests for remote strategy report functionality
+contract KatanaRemoteStrategyReportTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
+    }
+
+    function test_remote_report_success() public useKatFork {
+        uint256 depositAmount = 50_000e6;
+
+        airdropUSDC(address(remoteStrategy), depositAmount);
+
+        skip(1);
+
+        // Report should push funds and send message
+        vm.prank(keeper);
+        uint256 totalAssets = remoteStrategy.report();
+
+        assertEq(totalAssets, depositAmount, "Total assets should match");
+        assertEq(
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
+            0,
+            "All funds should be in vault after report"
+        );
+    }
+
+    function test_remote_report_onlyKeepers() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.report();
+    }
+
+    function test_remote_report_updatesLastReport() public useKatFork {
+        uint256 lastReportBefore = remoteStrategy.lastReport();
+
+        // Advance time
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(keeper);
+        remoteStrategy.report();
+
+        assertGt(
+            remoteStrategy.lastReport(),
+            lastReportBefore,
+            "Last report should be updated"
+        );
+    }
+
+    function test_remote_report_notReadyIfSameBlock() public useKatFork {
+        skip(1);
+
+        // First report
+        vm.prank(keeper);
+        remoteStrategy.report();
+
+        // Second report in same block should fail
+        vm.prank(keeper);
+        vm.expectRevert("NotReady");
+        remoteStrategy.report();
+    }
+
+    function test_remote_report_pushesIdleFunds() public useKatFork {
+        uint256 amount = 10_000e6;
+        airdropUSDC(address(remoteStrategy), amount);
+
+        skip(1);
+
+        vm.prank(keeper);
+        remoteStrategy.report();
+
+        // All idle funds should be pushed to vault
+        assertEq(
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
+            0,
+            "No idle funds after report"
+        );
+        assertApproxEqAbs(
+            remoteStrategy.valueOfDeployedAssets(),
+            amount,
+            10,
+            "All funds in vault"
+        );
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY KEEPER TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyKeeperTest
+/// @notice Tests for keeper management
+contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
+    }
+
+    function test_remote_setKeeper() public useKatFork {
+        address newKeeper = address(0xBEEF);
+
+        vm.prank(governance);
+        remoteStrategy.setKeeper(newKeeper, true);
+        assertTrue(remoteStrategy.keepers(newKeeper));
+
+        vm.prank(governance);
+        remoteStrategy.setKeeper(newKeeper, false);
+        assertFalse(remoteStrategy.keepers(newKeeper));
+    }
+
+    function test_remote_setKeeper_onlyGovernance() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remoteStrategy.setKeeper(address(0xBEEF), true);
+
+        vm.prank(keeper);
+        vm.expectRevert("!governance");
+        remoteStrategy.setKeeper(address(0xBEEF), true);
+    }
+
+    function test_remote_governanceIsKeeper() public useKatFork {
+        // Governance should be able to call keeper functions
+        airdropUSDC(address(remoteStrategy), 1_000e6);
+
+        vm.prank(governance);
+        remoteStrategy.pushFunds(1_000e6); // Should succeed
+    }
+
+    function test_remote_onlyKeepersFunctions() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.report();
+
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.pushFunds(1_000e6);
+
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.pullFunds(1_000e6);
+
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.processWithdrawal(1_000e6);
+
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.tend();
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY PROCESS WITHDRAWAL TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyProcessWithdrawalTest
+/// @notice Tests for processWithdrawal functionality
+contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
+    }
+
+    function test_remote_processWithdrawal_fromVault() public useKatFork {
+        uint256 depositAmount = 100_000e6;
+        uint256 withdrawAmount = 40_000e6;
+
+        // Fund and deposit to vault
+        airdropUSDC(address(remoteStrategy), depositAmount);
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
+
+        uint256 vaultValueBefore = remoteStrategy.valueOfDeployedAssets();
+
+        // Process withdrawal
+        vm.prank(keeper);
+        remoteStrategy.processWithdrawal(withdrawAmount);
+
+        // Vault value should decrease
+        assertLt(
+            remoteStrategy.valueOfDeployedAssets(),
+            vaultValueBefore,
+            "Vault value should decrease"
+        );
+    }
+
+    function test_remote_processWithdrawal_zeroAmount() public useKatFork {
+        // Zero amount should be no-op
+        vm.prank(keeper);
+        remoteStrategy.processWithdrawal(0);
+    }
+
+    function test_remote_processWithdrawal_onlyKeepers() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("NotKeeper");
+        remoteStrategy.processWithdrawal(1_000e6);
+    }
+
+    function test_remote_processWithdrawal_cappedToAvailable()
+        public
+        useKatFork
+    {
+        uint256 depositAmount = 50_000e6;
+
+        airdropUSDC(address(remoteStrategy), depositAmount);
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
+
+        // Request more than available
+        vm.prank(keeper);
+        remoteStrategy.processWithdrawal(100_000e6);
+
+        // Should process max available (vault becomes empty)
+        assertLe(
+            remoteStrategy.valueOfDeployedAssets(),
+            100,
+            "Vault should be nearly empty"
+        );
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY RESCUE TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyRescueTest
+/// @notice Tests for remote strategy rescue functionality
+contract KatanaRemoteStrategyRescueTest is KatanaSetup {
+    MockERC20 public rescueToken;
+
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
+        rescueToken = new MockERC20("Rescue Token", "RESCUE", 18);
+    }
+
+    function test_remote_rescue_success() public useKatFork {
+        uint256 rescueAmount = 1000e18;
+
+        deal(address(rescueToken), address(remoteStrategy), rescueAmount);
+
+        vm.prank(governance);
+        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
+
+        assertEq(rescueToken.balanceOf(user), rescueAmount);
+        assertEq(rescueToken.balanceOf(address(remoteStrategy)), 0);
+    }
+
+    function test_remote_rescue_asset_reverts() public useKatFork {
+        uint256 rescueAmount = 1000e6;
+
+        airdropUSDC(address(remoteStrategy), rescueAmount);
+
+        vm.prank(governance);
+        vm.expectRevert("InvalidToken");
+        remoteStrategy.rescue(katanaUsdc, user, rescueAmount);
+    }
+
+    function test_remote_rescue_vault_reverts() public useKatFork {
+        uint256 depositAmount = 1000e6;
+
+        airdropUSDC(address(remoteStrategy), depositAmount);
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
+
+        uint256 vaultBalance = remoteVault.balanceOf(address(remoteStrategy));
+        assertGt(vaultBalance, 0, "Should have vault shares");
+
+        vm.prank(governance);
+        vm.expectRevert("InvalidToken");
+        remoteStrategy.rescue(address(remoteVault), user, vaultBalance);
+    }
+
+    function test_remote_rescue_onlyGovernance() public useKatFork {
+        uint256 rescueAmount = 1000e18;
+
+        deal(address(rescueToken), address(remoteStrategy), rescueAmount);
+
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
+
+        vm.prank(keeper);
+        vm.expectRevert("!governance");
+        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
+
+        vm.prank(management);
+        vm.expectRevert("!governance");
+        remoteStrategy.rescue(address(rescueToken), user, rescueAmount);
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+        KATANA REMOTE STRATEGY GOVERNANCE TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaRemoteStrategyGovernanceTest
+/// @notice Tests for governance-only functions
+contract KatanaRemoteStrategyGovernanceTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(katFork);
+    }
+
+    function test_remote_setIsShutdown() public useKatFork {
+        assertFalse(remoteStrategy.isShutdown());
+
+        vm.prank(governance);
+        remoteStrategy.setIsShutdown(true);
+        assertTrue(remoteStrategy.isShutdown());
+
+        vm.prank(governance);
+        remoteStrategy.setIsShutdown(false);
+        assertFalse(remoteStrategy.isShutdown());
+    }
+
+    function test_remote_setIsShutdown_onlyGovernance() public useKatFork {
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remoteStrategy.setIsShutdown(true);
+    }
+
+    function test_remote_setProfitMaxUnlockTime() public useKatFork {
+        uint256 newTime = 14 days;
+
+        vm.prank(governance);
+        remoteStrategy.setProfitMaxUnlockTime(newTime);
+
+        assertEq(remoteStrategy.profitMaxUnlockTime(), newTime);
+    }
+
+    function test_remote_setAmountToTend() public useKatFork {
+        uint256 newAmount = 10_000e6;
+
+        vm.prank(governance);
+        remoteStrategy.setAmountToTend(newAmount);
+
+        assertEq(remoteStrategy.amountToTend(), newAmount);
+    }
+}
+
+/*//////////////////////////////////////////////////////////////
+                    INTEGRATION TESTS
+//////////////////////////////////////////////////////////////*/
+
+/// @title KatanaIntegrationTest
+/// @notice Full integration tests across both chains
+contract KatanaIntegrationTest is KatanaSetup {
+    function setUp() public override {
+        super.setUp();
+        vm.selectFork(ethFork);
+    }
+
+    function test_integration_fullDepositFlow() public {
+        vm.selectFork(ethFork);
+
+        uint256 depositAmount = 50_000e6;
+
+        // 1. Depositor deposits USDC
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // 2. Verify remoteAssets updated
+        assertEq(
+            strategy.remoteAssets(),
+            depositAmount,
+            "Remote assets should match deposit"
+        );
+
+        // 3. Verify depositor has shares
+        assertGt(
+            strategy.balanceOf(depositor),
+            0,
+            "Depositor should have shares"
+        );
+
+        // 4. Verify no USDC left in strategy
+        assertEq(
+            IERC20(USDC).balanceOf(address(strategy)),
+            0,
+            "No USDC should remain"
+        );
+    }
+
+    function test_integration_fullWithdrawalFlow() public {
+        vm.selectFork(ethFork);
+
+        uint256 depositAmount = 50_000e6;
+
+        // 1. Initial deposit
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        // 2. No funds available yet
+        assertEq(
+            strategy.availableWithdrawLimit(depositor),
+            0,
+            "No funds available"
+        );
+
+        // 3. Simulate vbToken arriving from Katana bridge claim
+        getVbTokenIntoStrategy(depositAmount);
+
+        // 4. Keeper redeems vbToken
+        vm.prank(keeper);
+        strategy.redeemVaultTokens();
+
+        // 5. USDC now available
+        uint256 availableBalance = IERC20(USDC).balanceOf(address(strategy));
+        assertGt(availableBalance, 0, "USDC should be available");
+        assertEq(
+            strategy.availableWithdrawLimit(depositor),
+            availableBalance,
+            "Withdraw limit should match balance"
+        );
+
+        // 6. Depositor withdraws
+        uint256 shares = strategy.balanceOf(depositor);
+        vm.prank(depositor);
+        strategy.redeem(shares, depositor, depositor);
+
+        // 7. Verify depositor received USDC
+        assertGt(
+            IERC20(USDC).balanceOf(depositor),
+            0,
+            "Depositor should have USDC"
+        );
+    }
+
+    function test_integration_profitReporting() public {
+        vm.selectFork(ethFork);
+
+        // 1. Set initial remote assets
+        uint256 initialAssets = 100_000e6;
+
+        mintAndDepositIntoStrategy(strategy, depositor, initialAssets);
+
+        assertEq(strategy.remoteAssets(), initialAssets);
+
+        // 2. Remote reports profit
+        uint256 profit = 5_000e6;
+        simulateBridgeMessage(initialAssets + profit);
+        assertEq(
+            strategy.remoteAssets(),
+            initialAssets + profit,
+            "Should reflect profit"
+        );
+
+        // 3. Report on strategy should include profit
+        uint256 totalAssets = strategy.totalAssets();
+        assertEq(
+            totalAssets,
+            initialAssets,
+            "Total assets should be the initial assets"
+        );
+
+        vm.prank(keeper);
+        strategy.report();
+
+        assertEq(
+            strategy.totalAssets(),
+            initialAssets + profit,
+            "Total assets should include profit"
+        );
+    }
+
+    function test_integration_lossReporting() public {
+        vm.selectFork(ethFork);
+
+        // 1. Set initial remote assets
+        uint256 initialAssets = 100_000e6;
+        simulateBridgeMessage(initialAssets);
+
+        // 2. Remote reports loss
+        uint256 loss = 5_000e6;
+        simulateBridgeMessage(initialAssets - loss);
+
+        assertEq(
+            strategy.remoteAssets(),
+            initialAssets - loss,
+            "Should reflect loss"
+        );
+    }
+
+    function test_integration_remoteVaultOperations() public {
+        vm.selectFork(katFork);
+
+        uint256 depositAmount = 100_000e6;
+
+        // 1. Fund remote strategy
+        airdropUSDC(address(remoteStrategy), depositAmount);
+
+        // 2. Push to vault
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
+
+        assertApproxEqAbs(
+            remoteStrategy.valueOfDeployedAssets(),
+            depositAmount,
+            10,
+            "Funds in vault"
+        );
+
+        // 3. Simulate profit
+        MockVault(address(remoteVault)).addProfit(5_000e6);
+
+        uint256 newValue = remoteStrategy.valueOfDeployedAssets();
+        assertApproxEqAbs(
+            newValue,
+            depositAmount + 5_000e6,
+            100,
+            "Should reflect profit"
+        );
+
+        // 4. Total assets includes profit
+        assertApproxEqAbs(
+            remoteStrategy.totalAssets(),
+            depositAmount + 5_000e6,
+            100,
+            "Total assets with profit"
+        );
+    }
+
+    function test_integration_remoteVaultLoss() public {
+        vm.selectFork(katFork);
+
+        uint256 depositAmount = 100_000e6;
+
+        airdropUSDC(address(remoteStrategy), depositAmount);
+        vm.prank(keeper);
+        remoteStrategy.pushFunds(depositAmount);
+
+        // Simulate loss
+        MockVault(address(remoteVault)).simulateLoss(10_000e6);
+
+        uint256 newValue = remoteStrategy.valueOfDeployedAssets();
+        assertApproxEqAbs(
+            newValue,
+            depositAmount - 10_000e6,
+            100,
+            "Should reflect loss"
+        );
+    }
+
+    function test_integration_completeReportCycle() public {
+        // Test complete report cycle on Katana
+        vm.selectFork(katFork);
+
+        uint256 amount = 75_000e6;
+        airdropUSDC(address(remoteStrategy), amount);
+
+        skip(1);
+        // Report should:
+        // 1. Push idle funds to vault
+        // 2. Calculate total assets
+        // 3. Send message to origin
+        vm.prank(keeper);
+        uint256 reportedAssets = remoteStrategy.report();
+
+        assertEq(reportedAssets, amount, "Reported assets should match");
+        assertEq(
+            IERC20(katanaUsdc).balanceOf(address(remoteStrategy)),
+            0,
+            "All funds pushed to vault"
+        );
+        assertApproxEqAbs(
+            remoteStrategy.valueOfDeployedAssets(),
+            amount,
+            10,
+            "Vault should have funds"
+        );
+    }
+
+    function test_fuzz_integration_depositAndMessage(
+        uint256 _depositAmount,
+        uint256 _reportedAssets
+    ) public {
+        vm.selectFork(ethFork);
+
+        _depositAmount = bound(_depositAmount, minFuzzAmount, maxFuzzAmount);
+        _reportedAssets = bound(_reportedAssets, 1, 1_000_000_000e6);
+
+        // Deposit
+        airdropUSDC(depositor, _depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), _depositAmount);
+        strategy.deposit(_depositAmount, depositor);
+        vm.stopPrank();
+
+        assertEq(strategy.remoteAssets(), _depositAmount);
+
+        // Message updates remote assets
+        simulateBridgeMessage(_reportedAssets);
+        assertEq(strategy.remoteAssets(), _reportedAssets);
     }
 }

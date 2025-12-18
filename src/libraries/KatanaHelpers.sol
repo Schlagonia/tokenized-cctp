@@ -18,16 +18,17 @@ library KatanaHelpers {
 
     // VaultBridgeToken addresses on Ethereum (Layer X)
     // These are the vbToken contracts that wrap underlying assets
-    // TODO: Update with actual deployed addresses
+    // Source: https://docs.katana.network/katana/technical-reference/contract-addresses/
     address public constant VB_USDC =
-        address(0xBEefb9f61CC44895d8AEc381373555a64191A9c4); // vbUSDC on Ethereum
+        0x53E82ABbb12638F09d9e624578ccB666217a765e; // vbUSDC on Ethereum
     address public constant VB_WETH =
-        address(0x31A5684983EeE865d943A696AAC155363bA024f9); // vbWETH on Ethereum
+        0x2DC70fb75b88d2eB4715bc06E1595E6D97c34DFF; // vbWETH on Ethereum (wraps native ETH)
     address public constant VB_USDT =
-        address(0xc54b4E08C1Dcc199fdd35c6b5Ab589ffD3428a8d); // vbUSDT on Ethereum
-    address public constant VB_USDS = address(0); // vbUSDS on Ethereum
+        0x6d4f9f9f8f0155509ecd6Ac6c544fF27999845CC; // vbUSDT on Ethereum
+    address public constant VB_USDS =
+        0x3DD459dE96F9C28e3a343b831cbDC2B93c8C4855; // vbUSDS on Ethereum
     address public constant VB_WBTC =
-        address(0x812B2C6Ab3f4471c0E43D4BB61098a9211017427); // vbWBTC on Ethereum
+        0x2C24B57e2CCd1f273045Af6A5f632504C432374F; // vbWBTC on Ethereum
 
     // Underlying asset addresses on Ethereum
     address public constant ETHEREUM_USDC =
@@ -42,11 +43,13 @@ library KatanaHelpers {
     /// @notice Get the vbToken address for a given underlying asset on Ethereum
     /// @param underlying The underlying asset address
     /// @return The vbToken address
+    /// @dev Note: vbETH wraps native ETH, not WETH. Use address(0) for ETH.
     function getVbToken(address underlying) internal pure returns (address) {
         if (underlying == ETHEREUM_USDC) return VB_USDC;
-        if (underlying == ETHEREUM_WETH) return VB_WETH;
         if (underlying == ETHEREUM_USDT) return VB_USDT;
         if (underlying == ETHEREUM_WBTC) return VB_WBTC;
+        if (underlying == address(0)) return VB_WETH; // Native ETH
+        if (underlying == ETHEREUM_WETH) return VB_WETH; // Native ETH
         revert("Unsupported asset");
     }
 

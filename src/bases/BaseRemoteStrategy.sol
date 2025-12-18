@@ -12,6 +12,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     event UpdatedIsShutdown(bool indexed isShutdown);
 
+    event UpdatedAmountToTend(uint256 indexed amountToTend);
+
     event UpdatedKeeper(address indexed keeper, bool indexed status);
 
     event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
@@ -40,6 +42,9 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @notice Used to match TokenizedStrategy interface for triggers.
     uint256 public lastReport;
 
+    /// @notice Amount of assets to trigger the keepers to tend.
+    uint256 public amountToTend;
+
     /// @notice Used to match TokenizedStrategy interface for triggers.
     uint256 public profitMaxUnlockTime;
 
@@ -61,6 +66,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         REMOTE_COUNTERPART = _remoteCounterpart;
         lastReport = block.timestamp;
         profitMaxUnlockTime = 7 days;
+        amountToTend = type(uint256).max;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -182,6 +188,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         emit UpdatedIsShutdown(_isShutdown);
     }
 
+    function setAmountToTend(uint256 _amountToTend) external onlyGovernance {
+        amountToTend = _amountToTend;
+
+        emit UpdatedAmountToTend(_amountToTend);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     ABSTRACT METHODS TO IMPLEMENT
     //////////////////////////////////////////////////////////////*/
@@ -206,7 +218,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     }
 
     function _tendTrigger() internal view virtual returns (bool) {
-        return false;
+        return balanceOfAsset() > amountToTend;
     }
 
     /// @notice Bridge assets back to origin chain
