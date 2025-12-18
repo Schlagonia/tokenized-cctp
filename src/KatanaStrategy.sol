@@ -47,6 +47,22 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
         asset.forceApprove(_vbToken, type(uint256).max);
     }
 
+    function _harvestAndReport() internal override returns (uint256) {
+        _redeemVaultTokens();
+        return super._harvestAndReport();
+    }
+
+    function redeemVaultTokens() external onlyKeepers {
+        _redeemVaultTokens();
+    }
+
+    function _redeemVaultTokens() internal {
+        uint256 vbBalance = VB_TOKEN.balanceOf(address(this));
+        if (vbBalance > 0) {
+            VB_TOKEN.redeem(vbBalance, address(this), address(this));
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                     BASECROSSCHAIN IMPLEMENTATIONS
     //////////////////////////////////////////////////////////////*/
@@ -63,7 +79,7 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
             _amount,
             REMOTE_COUNTERPART,
             uint32(uint256(REMOTE_ID)),
-            false // forceUpdateGlobalExitRoot
+            true // forceUpdateGlobalExitRoot
         );
 
         return _amount;

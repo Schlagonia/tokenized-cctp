@@ -51,6 +51,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     uint256 public lastReport;
 
     /// @notice Amount of assets to trigger the keepers to tend.
+
     /// @dev Default is type(uint256).max which disables automatic tend triggers.
     ///      Set via setAmountToTend() to enable.
     uint256 public amountToTend;
