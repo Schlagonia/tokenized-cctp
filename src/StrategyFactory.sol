@@ -57,6 +57,7 @@ contract StrategyFactory is BaseCCTP {
     function newStrategy(
         string memory _name,
         uint32 _remoteDomain,
+        uint256 _remoteChainId,
         address _remoteVault,
         address _depositer
     ) external virtual returns (address) {
@@ -78,6 +79,7 @@ contract StrategyFactory is BaseCCTP {
                     address(TOKEN_MESSENGER),
                     address(MESSAGE_TRANSMITTER),
                     _remoteDomain,
+                    _remoteChainId,
                     _remoteCounterpart,
                     _depositer
                 )

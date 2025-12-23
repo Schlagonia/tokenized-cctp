@@ -48,6 +48,7 @@ contract HyperIntegrationTest is Test {
             address(ETH_TOKEN_MESSENGER),
             address(ETH_MESSAGE_TRANSMITTER),
             CCTPHelpers.HYPEREVM_DOMAIN, // domain 19
+            999,
             mockRemoteStrategy,
             depositor
         );

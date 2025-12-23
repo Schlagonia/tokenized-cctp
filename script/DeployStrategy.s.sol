@@ -28,10 +28,10 @@ contract DeployStrategy is Script {
     function run() external {
             //deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
             //deployStrategy(CCTPHelpers.POLYGON_DOMAIN, POLYGON_VAULT, "POLYGON_RPC_URL");
-            deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, ARB_VAULT, "ARB_RPC_URL");
+            deployStrategy(CCTPHelpers.ARBITRUM_DOMAIN, uint256(42161), ARB_VAULT, "ARB_RPC_URL");
     }
 
-    function deployStrategy(uint32 _remoteDomain, address _remoteVault, string memory _rpc) public {
+    function deployStrategy(uint32 _remoteDomain, uint256 _remoteChainId, address _remoteVault, string memory _rpc) public {
         // Deploy on mainnet first (origin strategy)
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         vm.startBroadcast();
@@ -39,6 +39,7 @@ contract DeployStrategy is Script {
         address strategy = StrategyFactory(MAINNET_FACTORY).newStrategy(
             STRATEGY_NAME,
             _remoteDomain,
+            _remoteChainId,
             _remoteVault,
             DEPOSITER
         );

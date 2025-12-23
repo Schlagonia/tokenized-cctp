@@ -97,6 +97,10 @@ contract Setup is Test, IEvents {
     uint32 public constant ETHEREUM_DOMAIN = 0;
     uint32 public constant BASE_DOMAIN = 6;
 
+    // Chain IDs
+    uint256 public constant ETHEREUM_CHAIN_ID = 1;
+    uint256 public constant BASE_CHAIN_ID = 8453;
+
     // Vault on Base
     IERC4626 public vault;
 
@@ -193,6 +197,7 @@ contract Setup is Test, IEvents {
             _strategyFactory.newStrategy(
                 "CCTP USDC Strategy",
                 BASE_DOMAIN,
+                BASE_CHAIN_ID,
                 address(vault),
                 depositor
             )

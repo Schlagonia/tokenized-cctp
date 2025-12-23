@@ -18,6 +18,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
         address _tokenMessenger,
         address _messageTransmitter,
         uint32 _remoteDomain,
+        uint256 _remoteChainId,
         address _remoteCounterpart,
         address _depositer
     )
@@ -25,6 +26,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
             _asset,
             _name,
             bytes32(uint256(_remoteDomain)),
+            _remoteChainId,
             _remoteCounterpart,
             _depositer
         )

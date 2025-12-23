@@ -49,6 +49,7 @@ contract DeployHyperStrategy is Script {
             TOKEN_MESSENGER,
             MESSAGE_TRANSMITTER,
             CCTPHelpers.HYPEREVM_DOMAIN,
+            999,
             predictedRemote,
             DEPOSITER
         );

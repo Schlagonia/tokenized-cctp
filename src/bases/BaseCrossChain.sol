@@ -9,8 +9,11 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Address allowed to deposit into this strategy
     address public immutable DEPOSITER;
 
-    /// @notice Remote chain identifier (can be domain ID, chain ID, etc.)
+    /// @notice Remote chain identifier specific to bridge implementation.
     bytes32 public immutable REMOTE_ID;
+
+    /// @notice Remote chain ID.
+    uint256 public immutable REMOTE_CHAIN_ID;
 
     /// @notice Address of the remote strategy counterpart
     address public immutable REMOTE_COUNTERPART;
@@ -22,6 +25,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         address _asset,
         string memory _name,
         bytes32 _remoteId,
+        uint256 _remoteChainId,
         address _remoteCounterpart,
         address _depositer
     ) BaseHealthCheck(_asset, _name) {
@@ -30,6 +34,7 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         // Note: _remoteId can be 0 for some chains (e.g., Ethereum domain = 0)
 
         REMOTE_ID = _remoteId;
+        REMOTE_CHAIN_ID = _remoteChainId;
         REMOTE_COUNTERPART = _remoteCounterpart;
         DEPOSITER = _depositer;
 
