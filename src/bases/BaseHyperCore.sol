@@ -62,6 +62,9 @@ abstract contract BaseHyperCore {
     /// @notice Scale factor from 8 decimals to 18 decimals
     uint256 internal constant SPOT_TO_18_SCALE = 1e10; // 10^(18-8)
 
+    /// @notice Scale factor from 6 decimals to 18 decimals
+    uint256 internal constant PERP_TO_18_SCALE = 1e12; // 10^(18-6)
+
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -206,9 +209,9 @@ abstract contract BaseHyperCore {
             .staticcall(abi.encode(address(this), vault));
         require(success, "VaultEquityPrecompileFailed");
 
-        // Result is in 8 decimals (spot), scale to 18
+        // Result is in 6decimals (perp), scale to 18
         uint256 rawEquity = abi.decode(result, (uint256));
-        equity = rawEquity * SPOT_TO_18_SCALE;
+        equity = rawEquity * PERP_TO_18_SCALE;
     }
 
     /// @notice Query USDC spot balance from HyperCore
@@ -232,6 +235,6 @@ abstract contract BaseHyperCore {
 
         // Result is in 6 decimals (perp), scale to 18
         uint256 rawBalance = abi.decode(result, (uint256));
-        balance = rawBalance * 1e12; // 10^(18-6)
+        balance = rawBalance * PERP_TO_18_SCALE;
     }
 }

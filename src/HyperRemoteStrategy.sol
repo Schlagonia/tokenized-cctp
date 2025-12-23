@@ -125,7 +125,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Query perps balance via precompile (returns 18 decimals)
         uint256 perps18 = _usdPerpsBalance();
         // Convert from 18 decimals to 6 decimals
-        return (equity18 + spot18 + perps18) / 1e12;
+        return (equity18 + spot18 + perps18) / PERP_TO_18_SCALE;
     }
 
     /// @notice Deploy USDC from EVM to HyperCore spot (async)
@@ -211,7 +211,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Query via precompile (returns 18 decimals)
         uint256 balance18 = _usdSpotBalance();
         // Convert to 6 decimals
-        return balance18 / 1e12;
+        return balance18 / PERP_TO_18_SCALE;
     }
 
     /// @notice Get HyperCore perps balance (withdrawable USDC from perps)
@@ -221,7 +221,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Query via precompile (returns 18 decimals)
         uint256 balance18 = _usdPerpsBalance();
         // Convert to 6 decimals
-        return balance18 / 1e12;
+        return balance18 / PERP_TO_18_SCALE;
     }
 
     /// @notice Get HyperCore vault equity (USDC available in vault)
@@ -230,7 +230,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     function vaultEquity() public view returns (uint256) {
         uint256 equity18 = _vaultEquity(HLP_VAULT);
         // Convert to 6 decimals
-        return equity18 / 1e12;
+        return equity18 / PERP_TO_18_SCALE;
     }
 
     /*//////////////////////////////////////////////////////////////
