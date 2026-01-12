@@ -132,12 +132,12 @@ contract StrategyFactory is BaseCCTP {
         uint32 _remoteDomain = uint32(
             uint256(IStrategyInterface(_strategy).REMOTE_ID())
         );
-        address _remoteVault = IStrategyInterface(_strategy)
+        address _remoteCounterpart = IStrategyInterface(_strategy)
             .REMOTE_COUNTERPART();
 
         // Since we changed to track by vault, we need to iterate or add reverse mapping
         // For now, returning true if the strategy has valid configuration
-        return deployments[_remoteDomain][_remoteVault] == _strategy;
+        return deployments[_remoteDomain][_remoteCounterpart] == _strategy;
     }
 
     function computeCreateAddress(

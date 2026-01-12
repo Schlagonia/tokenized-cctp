@@ -22,4 +22,6 @@ interface ITokenMessenger {
         uint32 minFinalityThreshold,
         bytes calldata hookData
     ) external;
+
+    function localMessageTransmitter() external view returns (address);
 }

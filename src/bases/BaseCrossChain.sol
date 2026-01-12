@@ -6,6 +6,8 @@ import {BaseHealthCheck} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol"
 /// @notice Base contract for cross-chain strategies on the origin chain
 /// @dev Provides message ordering, remote asset tracking, and abstract bridging interface
 abstract contract BaseCrossChain is BaseHealthCheck {
+    event RemoteAssetsUpdated(uint256 indexed amount);
+
     /// @notice Address allowed to deposit into this strategy
     address public immutable DEPOSITER;
 
@@ -77,12 +79,13 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     }
 
     /// @notice Handles incoming cross-chain messages
-    /// @param amount Signed integer representing asset change (positive = profit, negative = withdrawal)
+    /// @param amount Total amount of assets the remote strategy has.
     function _handleIncomingMessage(uint256 amount) internal virtual {
         // NOTE: Its possible a remote report while funds are in flight would cause an invalid report to cause incorrect losses.
-        // We accpet the amount either wauy since _harvestAndReport() will execute health check and make sure the message can
-        // not be executed in the future.
+        // We accept the amount either way since _harvestAndReport() will execute health check and make sure the message can
+        // not be executed in the future. The next report will fully override so we only need last report to be valid.
         remoteAssets = amount;
+        emit RemoteAssetsUpdated(amount);
     }
 
     function balanceOfAsset() public view virtual returns (uint256) {
@@ -94,9 +97,10 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deploy funds to remote chain
-    /// @dev Increments request ID, calls bridge implementation, updates remote assets
     function _deployFunds(uint256 _amount) internal virtual override {
-        remoteAssets += _bridgeAssets(_amount);
+        uint256 newRemoteAssets = remoteAssets + _bridgeAssets(_amount);
+        remoteAssets = newRemoteAssets;
+        emit RemoteAssetsUpdated(newRemoteAssets);
     }
 
     /// @notice No-op for freeing funds (not needed for cross-chain strategies)

@@ -9,7 +9,7 @@ import {BaseCCTP} from "./bases/BaseCCTP.sol";
 /// @notice Remote strategy that receives USDC via CCTP and deploys to ERC4626 vault
 /// @dev Handles deposits, withdrawals, and profit/loss reporting via CCTP
 contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
-    using SafeERC20 for *;
+    using SafeERC20 for ERC20;
 
     constructor(
         address _asset,

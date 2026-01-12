@@ -171,7 +171,7 @@ abstract contract BaseHyperCore {
     /// @dev Uses SpotSend action
     /// @param destination The recipient address
     /// @param token The token index
-    /// @param amount Amount in 6 decimals (EVM USDC decimals)
+    /// @param amount Amount in 6 decimals (EVM USDC decimals). Converted to 8 decimals internally for HyperCore spot.
     function _spotSend(
         address destination,
         uint64 token,

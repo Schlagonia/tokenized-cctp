@@ -24,8 +24,8 @@ interface IBaseRemoteStrategy is IGovernance {
     event UpdatedIsShutdown(bool indexed isShutdown);
 
     /// @notice Emitted when a report is sent
-    /// @param reportProfit The profit/loss reported
-    event Reported(int256 indexed reportProfit);
+    /// @param totalAssets The total assets reported
+    event Reported(uint256 indexed totalAssets);
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -80,8 +80,9 @@ interface IBaseRemoteStrategy is IGovernance {
 
     /// @notice Send exposure report to origin chain
     /// @dev Calculates profit/loss and bridges message back
-    /// @return reportProfit The profit/loss reported to the origin chain
-    function report() external returns (int256 reportProfit);
+    /// @return _totalAssets The total assets reported to the origin chain
+    /// @return . We return nothing, but need parity with TokenizedStrategy interface.
+    function report() external returns (uint256 _totalAssets, uint256);
 
     /// @notice Deploy idle assets if conditions are met
     /// @dev Deposits idle assets into the vault
@@ -102,11 +103,13 @@ interface IBaseRemoteStrategy is IGovernance {
 
     /// @notice Push loose funds into the vault
     /// @param _amount Amount to deposit into vault
-    function pushFunds(uint256 _amount) external;
+    /// @return The amount actually deposited
+    function pushFunds(uint256 _amount) external returns (uint256);
 
     /// @notice Pull funds from the vault
-    /// @param _shares Amount of shares to redeem from vault
-    function pullFunds(uint256 _shares) external;
+    /// @param _amount Amount of assets to withdraw from vault
+    /// @return The amount actually withdrawn
+    function pullFunds(uint256 _amount) external returns (uint256);
 
     /// @notice Set keeper status for an address
     /// @param _address Address to update

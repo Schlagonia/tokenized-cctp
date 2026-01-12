@@ -23,7 +23,7 @@ interface ICoreDepositWallet {
 ///   Step 2: depositToVault() - Deposit from Core spot into HLP vault
 ///
 /// WITHDRAW FLOW (2 steps):
-///   Step 1: withdrawFromVault() - Withdraw from HLP vault to Core spot (subject to lockup)
+///   Step 1: withdrawFromVault() - Withdraw from HLP vault to Core perps, then to spot (subject to lockup)
 ///   Step 2: pullFunds() - Bridge from Core spot to EVM (async)
 ///
 /// Note: HLP vault has a 4-day lockup. Use coreSpotBalance() to check withdrawable amount.
@@ -102,7 +102,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     /// @param _amount Amount in 6 decimals to withdraw
     function withdrawFromVault(uint256 _amount) external onlyKeepers {
         // Withdraw from HLP vault to perps
-        // Note: HyperCore enforces lockup - only unlocked funds will arrive in perps
+        // Note: HyperCore backend enforces 4-day lockup - locked funds will not be processed
         _vaultWithdraw(_amount, HLP_VAULT);
 
         _perpsToSpot(_amount);
@@ -142,7 +142,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     /// @dev Step 2 of withdraw flow. Call withdrawFromVault() first.
     ///      Transfers perps → spot → EVM
     /// @param _amount Amount in 6 decimals
-    /// @return Amount bridged to EVM
+    /// @return Always returns 0 since bridging is async (non-atomic)
     function _pullFunds(uint256 _amount) internal override returns (uint256) {
         // Funds should already be in spot from withdrawFromVault()
         require(_amount <= coreSpotBalance(), "Insufficient spot balance");

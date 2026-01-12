@@ -6,9 +6,11 @@ import {Governance} from "@periphery/utils/Governance.sol";
 import {AuctionSwapper} from "@periphery/swappers/AuctionSwapper.sol";
 
 /// @notice Base contract for cross-chain strategies on remote chains
-/// @dev Provides keeper management, ERC4626 vault interaction, and abstract bridging interface
+/// @dev Provides keeper, management, accounting and abstract bridging interface
 abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     event Reported(uint256 indexed totalAssets);
+
+    event WithdrawProcessed(uint256 indexed amount);
 
     event UpdatedIsShutdown(bool indexed isShutdown);
 
@@ -43,6 +45,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     uint256 public lastReport;
 
     /// @notice Amount of assets to trigger the keepers to tend.
+    /// @dev Default is type(uint256).max which disables automatic tend triggers.
+    ///      Set via setAmountToTend() to enable.
     uint256 public amountToTend;
 
     /// @notice Used to match TokenizedStrategy interface for triggers.
@@ -76,11 +80,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @notice Send exposure report to origin chain
     /// @dev Calculates profit/loss and bridges message back
     /// @return _totalAssets The total assets reported to the origin chain
+    /// @return . We return nothing, but need parity with TokenizedStrategy interface.
     function report()
         external
         virtual
         onlyKeepers
-        returns (uint256 _totalAssets)
+        returns (uint256 _totalAssets, uint256)
     {
         require(block.timestamp > lastReport, "NotReady");
 
@@ -119,7 +124,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     }
 
     /// @notice Process withdrawal request from origin chain
-    /// @dev Withdraws from vault if needed and bridges tokens back
+    /// @dev Withdraws from vault if needed and bridges tokens back.
+    ///      Automatically caps withdrawal to (loose + deployed) assets if requested amount exceeds available.
     /// @param _amount Amount to withdraw and bridge back
     function processWithdrawal(uint256 _amount) external virtual onlyKeepers {
         if (_amount == 0) return;
@@ -133,9 +139,10 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         }
 
         if (_amount > loose) {
-            uint256 withdrawn = _pullFunds(_amount - loose);
+            uint256 needed = _amount - loose;
+            uint256 withdrawn = _pullFunds(needed);
 
-            if (withdrawn < _amount - loose) {
+            if (withdrawn < needed) {
                 _amount = loose + withdrawn;
             }
         }
@@ -143,19 +150,32 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         require(balanceOfAsset() >= _amount, "not enough");
 
         _bridgeAssets(_amount);
+
+        emit WithdrawProcessed(_amount);
     }
 
     /// @notice Push loose funds into the vault
     /// @param _amount Amount to deposit into vault
-    function pushFunds(uint256 _amount) external virtual onlyKeepers {
+    function pushFunds(
+        uint256 _amount
+    ) external virtual onlyKeepers returns (uint256) {
         require(!isShutdown, "Shutdown");
-        _pushFunds(_amount);
+        return _pushFunds(_amount);
     }
 
     /// @notice Pull funds from the vault
-    /// @param _amount Amount of shares to redeem from vault
-    function pullFunds(uint256 _amount) external virtual onlyKeepers {
-        _pullFunds(_amount);
+    /// @param _amount Amount of assets to withdraw from vault
+    function pullFunds(
+        uint256 _amount
+    ) external virtual onlyKeepers returns (uint256) {
+        return _pullFunds(_amount);
+    }
+
+    /// @notice Override to make permissioned auction kick.
+    function kickAuction(
+        address _token
+    ) external virtual override onlyKeepers returns (uint256) {
+        return _kickAuction(_token);
     }
 
     /// @notice Set keeper status for an address
@@ -170,7 +190,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         emit UpdatedKeeper(_address, _allowed);
     }
 
-    function setAuction(address _auction) external onlyGovernance {
+    function setAuction(address _auction) external virtual onlyGovernance {
         _setAuction(_auction);
     }
 
@@ -207,10 +227,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         return asset.balanceOf(address(this));
     }
 
+    /// @dev Should round down when applicable to avoid dust losses.
     function valueOfDeployedAssets() public view virtual returns (uint256);
 
     function _pushFunds(uint256 _amount) internal virtual returns (uint256);
 
+    /// @dev Must return the exact amount of assets withdrawn.
     function _pullFunds(uint256 _amount) internal virtual returns (uint256);
 
     function _tend(uint256 _idleAssets) internal virtual {

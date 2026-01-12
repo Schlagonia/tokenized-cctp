@@ -49,7 +49,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Step 5: Send exposure report back (report() also pushes any remaining idle funds)
         vm.prank(keeper);
-        uint256 reportedAmount = remoteStrategy.report();
+        (uint256 reportedAmount, ) = remoteStrategy.report();
 
         // Step 6: Process report on Ethereum
         vm.selectFork(ethFork);
@@ -172,7 +172,7 @@ contract CCTPIntegrationTest is Setup {
 
         // Send exposure report (now returns total assets, not profit delta)
         vm.prank(keeper);
-        uint256 reportedTotalAssets = remoteStrategy.report();
+        (uint256 reportedTotalAssets, ) = remoteStrategy.report();
 
         // Total assets should equal vault value + loose balance (with some vault rounding)
         assertApproxEqAbs(reportedTotalAssets, totalValue, 1000);
@@ -220,7 +220,7 @@ contract CCTPIntegrationTest is Setup {
         // Send exposure report (now returns total assets, which reflects the loss)
         skip(1);
         vm.prank(keeper);
-        uint256 reportedTotalAssets = remoteStrategy.report();
+        (uint256 reportedTotalAssets, ) = remoteStrategy.report();
 
         // Total assets should be approximately depositAmount - lossAmount (with vault rounding)
         assertApproxEqAbs(
@@ -297,7 +297,7 @@ contract CCTPIntegrationTest is Setup {
         skip(1 days);
 
         vm.prank(keeper);
-        uint256 reportedTotalAssets = remoteStrategy.report();
+        (uint256 reportedTotalAssets, ) = remoteStrategy.report();
 
         // Report on Ethereum
         vm.selectFork(ethFork);
@@ -344,7 +344,7 @@ contract CCTPIntegrationTest is Setup {
         // Send report from remote to origin to sync accounting
         skip(1);
         vm.prank(keeper);
-        uint256 reportedAssets = remoteStrategy.report();
+        (uint256 reportedAssets, ) = remoteStrategy.report();
 
         // Process report on Ethereum
         vm.selectFork(ethFork);

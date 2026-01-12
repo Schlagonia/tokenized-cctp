@@ -34,6 +34,10 @@ abstract contract BaseCCTP is IMessageHandlerV2 {
 
         USDC = _usdc;
         TOKEN_MESSENGER = ITokenMessenger(_tokenMessenger);
+        require(
+            TOKEN_MESSENGER.localMessageTransmitter() == _messageTransmitter,
+            "InvalidMessageTransmitter"
+        );
         MESSAGE_TRANSMITTER = IMessageTransmitter(_messageTransmitter);
     }
 
