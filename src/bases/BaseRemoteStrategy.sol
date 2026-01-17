@@ -128,6 +128,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     ///      Automatically caps withdrawal to (loose + deployed) assets if requested amount exceeds available.
     /// @param _amount Amount to withdraw and bridge back
     function processWithdrawal(uint256 _amount) external virtual onlyKeepers {
+        require(block.timestamp > lastReport, "NotReady");
         if (_amount == 0) return;
 
         uint256 loose = balanceOfAsset();
@@ -152,6 +153,15 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         _bridgeAssets(_amount);
 
         emit WithdrawProcessed(_amount);
+
+        // Send a report of the now current assets as well so accounting is correct.
+        lastReport = block.timestamp;
+        uint256 _totalAssets = totalAssets();
+
+        bytes memory messageBody = abi.encode(_totalAssets);
+        _bridgeMessage(messageBody);
+
+        emit Reported(_totalAssets);
     }
 
     /// @notice Push loose funds into the vault

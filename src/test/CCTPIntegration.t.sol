@@ -87,6 +87,8 @@ contract CCTPIntegrationTest is Setup {
 
         vm.selectFork(baseFork);
 
+        skip(1);
+
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(withdrawAmount);
 

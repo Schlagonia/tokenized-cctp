@@ -185,6 +185,8 @@ contract EmergencyTests is Setup {
         vm.prank(keeper);
         remoteStrategy.pushFunds(20000e6);
 
+        skip(1);
+
         // Keeper operations should still work
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(10000e6);

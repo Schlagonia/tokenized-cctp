@@ -77,6 +77,27 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         asset.forceApprove(CORE_DEPOSIT_WALLET, type(uint256).max);
     }
 
+    /// @notice Need to override to prevent idle assets from being pushed.
+    ///   Since pushFunds is non atomic it would cause incorrect accounting
+    function report()
+        external
+        virtual
+        override
+        onlyKeepers
+        returns (uint256 _totalAssets, uint256)
+    {
+        require(block.timestamp > lastReport, "NotReady");
+
+        // Update State
+        lastReport = block.timestamp;
+        _totalAssets = totalAssets();
+
+        bytes memory messageBody = abi.encode(_totalAssets);
+        _bridgeMessage(messageBody);
+
+        emit Reported(_totalAssets);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         VAULT INTERACTION FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -86,6 +107,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     ///      Transfers spot → perps → vault
     /// @param _amount Amount in 6 decimals to deposit to vault
     function depositToVault(uint256 _amount) external onlyKeepers {
+        require(block.timestamp > lastReport, "NotReady");
         // Transfer from spot to perps if needed
         uint256 perpsBalance = corePerpsBalance();
         if (_amount > perpsBalance) {
@@ -94,6 +116,8 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Deposit from perps into HLP vault
         _vaultDeposit(_amount, HLP_VAULT);
 
+        lastReport = block.timestamp;
+
         emit DepositToVault(_amount);
     }
 
@@ -101,11 +125,14 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     /// @dev Subject to HLP lockup period. Call pullFunds() after to bridge to EVM.
     /// @param _amount Amount in 6 decimals to withdraw
     function withdrawFromVault(uint256 _amount) external onlyKeepers {
+        require(block.timestamp > lastReport, "NotReady");
         // Withdraw from HLP vault to perps
         // Note: HyperCore backend enforces 4-day lockup - locked funds will not be processed
         _vaultWithdraw(_amount, HLP_VAULT);
 
         _perpsToSpot(_amount);
+
+        lastReport = block.timestamp;
 
         emit WithdrawFromVault(_amount);
     }
@@ -133,6 +160,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     /// @param _amount Amount in 6 decimals
     /// @return Amount deposited to Core
     function _pushFunds(uint256 _amount) internal override returns (uint256) {
+        lastReport = block.timestamp;
         // Bridge USDC from EVM to HyperCore spot account
         ICoreDepositWallet(CORE_DEPOSIT_WALLET).deposit(_amount, SPOT_DEX);
         return _amount;
@@ -144,6 +172,8 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     /// @param _amount Amount in 6 decimals
     /// @return Always returns 0 since bridging is async (non-atomic)
     function _pullFunds(uint256 _amount) internal override returns (uint256) {
+        require(block.timestamp > lastReport, "NotReady");
+
         // Funds should already be in spot from withdrawFromVault()
         require(_amount <= coreSpotBalance(), "Insufficient spot balance");
         require(
@@ -153,6 +183,9 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
 
         // Initiate async bridge from Core spot to EVM
         _spotSend(USDC_SYSTEM_ADDRESS, USDC_SPOT_INDEX, _amount);
+
+        lastReport = block.timestamp;
+
         // Return 0 since its non atomic, so processWithdrawal does not try to bridge the funds back.
         return 0;
     }
