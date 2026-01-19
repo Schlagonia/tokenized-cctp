@@ -98,6 +98,35 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         emit Reported(_totalAssets);
     }
 
+    /// @notice Override to prevent _pullFunds from being called to cause async withdraw
+    function processWithdrawal(
+        uint256 _amount
+    ) external virtual override onlyKeepers {
+        require(block.timestamp > lastReport, "NotReady");
+
+        // Can only withdraw the amount of loose assets
+        uint256 loose = balanceOfAsset();
+
+        if (_amount > loose) {
+            _amount = loose;
+        }
+
+        require(_amount > 0, "ZeroAmount");
+
+        uint256 bridged = _bridgeAssets(_amount);
+
+        emit WithdrawProcessed(bridged);
+
+        // Send a report of the now current assets as well so accounting is correct.
+        lastReport = block.timestamp;
+        uint256 _totalAssets = totalAssets();
+
+        bytes memory messageBody = abi.encode(_totalAssets);
+        _bridgeMessage(messageBody);
+
+        emit Reported(_totalAssets);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         VAULT INTERACTION FUNCTIONS
     //////////////////////////////////////////////////////////////*/

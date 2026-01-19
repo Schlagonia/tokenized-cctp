@@ -150,9 +150,9 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
         require(balanceOfAsset() >= _amount, "not enough");
 
-        _bridgeAssets(_amount);
+        uint256 bridged = _bridgeAssets(_amount);
 
-        emit WithdrawProcessed(_amount);
+        emit WithdrawProcessed(bridged);
 
         // Send a report of the now current assets as well so accounting is correct.
         lastReport = block.timestamp;
@@ -246,10 +246,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     function _pullFunds(uint256 _amount) internal virtual returns (uint256);
 
     function _tend(uint256 _idleAssets) internal virtual {
+        require(!isShutdown, "Shutdown");
         _pushFunds(_idleAssets);
     }
 
     function _tendTrigger() internal view virtual returns (bool) {
+        if (isShutdown) return false;
         return balanceOfAsset() > amountToTend;
     }
 

@@ -105,7 +105,7 @@ contract StrategyFactory is BaseCCTP {
 
         emit NewStrategy(address(_newStrategy), _remoteDomain);
 
-        deployments[_remoteDomain][_remoteVault] = address(_newStrategy);
+        deployments[_remoteDomain][_remoteCounterpart] = address(_newStrategy);
         nonce++;
 
         return address(_newStrategy);
