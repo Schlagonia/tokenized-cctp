@@ -177,6 +177,18 @@ contract RemoteStrategyTests is Setup {
         remoteStrategy.report(); // Should succeed
     }
 
+    function test_reportNotReady() public useBaseFork {
+        vm.prank(keeper);
+        vm.expectRevert("NotReady");
+        remoteStrategy.report();
+
+        skip(1);
+        vm.prank(keeper);
+        remoteStrategy.report(); // Should succeed
+
+        assertEq(remoteStrategy.lastReport(), block.timestamp);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         WITHDRAWAL PROCESSING
     //////////////////////////////////////////////////////////////*/

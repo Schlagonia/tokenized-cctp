@@ -25,6 +25,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         _;
     }
 
+    modifier isReady() {
+        require(block.timestamp > lastReport, "NotReady");
+        _;
+        lastReport = block.timestamp;
+    }
+
     function _requireIsKeeper(address _sender) internal view virtual {
         require(_sender == governance || keepers[_sender], "NotKeeper");
     }
@@ -84,18 +90,15 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     function report()
         external
         virtual
+        isReady
         onlyKeepers
         returns (uint256 _totalAssets, uint256)
     {
-        require(block.timestamp > lastReport, "NotReady");
-
         uint256 idle = balanceOfAsset();
         if (idle > 0 && !isShutdown) {
             _pushFunds(idle);
         }
 
-        // Update State
-        lastReport = block.timestamp;
         _totalAssets = totalAssets();
 
         bytes memory messageBody = abi.encode(_totalAssets);
@@ -127,8 +130,9 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @dev Withdraws from vault if needed and bridges tokens back.
     ///      Automatically caps withdrawal to (loose + deployed) assets if requested amount exceeds available.
     /// @param _amount Amount to withdraw and bridge back
-    function processWithdrawal(uint256 _amount) external virtual onlyKeepers {
-        require(block.timestamp > lastReport, "NotReady");
+    function processWithdrawal(
+        uint256 _amount
+    ) external virtual onlyKeepers isReady {
         if (_amount == 0) return;
 
         uint256 loose = balanceOfAsset();
@@ -155,7 +159,6 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         emit WithdrawProcessed(bridged);
 
         // Send a report of the now current assets as well so accounting is correct.
-        lastReport = block.timestamp;
         uint256 _totalAssets = totalAssets();
 
         bytes memory messageBody = abi.encode(_totalAssets);
