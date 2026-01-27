@@ -152,6 +152,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
             }
         }
 
+        require(_amount > 0, "ZeroAmount");
         require(balanceOfAsset() >= _amount, "not enough");
 
         uint256 bridged = _bridgeAssets(_amount);

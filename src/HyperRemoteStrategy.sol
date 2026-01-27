@@ -130,6 +130,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     ///      Transfers spot → perps → vault
     /// @param _amount Amount in 6 decimals to deposit to vault
     function depositToVault(uint256 _amount) external onlyKeepers isReady {
+        require(!isShutdown, "Shutdown");
         // Transfer from spot to perps if needed
         uint256 perpsBalance = corePerpsBalance();
         if (_amount > perpsBalance) {
