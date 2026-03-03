@@ -10,7 +10,6 @@ import {IVaultBridgeToken} from "../interfaces/lxly/IVaultBridgeToken.sol";
 import {IPolygonZkEVMBridgeV2} from "../interfaces/lxly/IPolygonZkEVMBridgeV2.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 /*//////////////////////////////////////////////////////////////
             KATANA STRATEGY CONSTRUCTOR TESTS
@@ -229,6 +228,14 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             newStrategy.LOCAL_NETWORK_ID(),
             ETHEREUM_NETWORK_ID,
             "Local network ID should be 0 (Ethereum)"
+        );
+    }
+
+    function test_helpers_getVbToken_supportsUSDS() public {
+        assertEq(
+            KatanaHelpers.getVbToken(KatanaHelpers.ETHEREUM_USDS),
+            KatanaHelpers.VB_USDS,
+            "USDS vbToken mismatch"
         );
     }
 }
@@ -1158,7 +1165,7 @@ contract KatanaRemoteStrategyReportTest is KatanaSetup {
 
         // Report should push funds and send message
         vm.prank(keeper);
-        uint256 totalAssets = remoteStrategy.report();
+        (uint256 totalAssets, ) = remoteStrategy.report();
 
         assertEq(totalAssets, depositAmount, "Total assets should match");
         assertEq(
@@ -1169,6 +1176,8 @@ contract KatanaRemoteStrategyReportTest is KatanaSetup {
     }
 
     function test_remote_report_onlyKeepers() public useKatFork {
+        skip(1);
+
         vm.prank(user);
         vm.expectRevert("NotKeeper");
         remoteStrategy.report();
@@ -1270,6 +1279,8 @@ contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
     }
 
     function test_remote_onlyKeepersFunctions() public useKatFork {
+        skip(1);
+
         vm.prank(user);
         vm.expectRevert("NotKeeper");
         remoteStrategy.report();
@@ -1316,6 +1327,8 @@ contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
         uint256 vaultValueBefore = remoteStrategy.valueOfDeployedAssets();
 
         // Process withdrawal
+        skip(1);
+
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(withdrawAmount);
 
@@ -1329,6 +1342,8 @@ contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
 
     function test_remote_processWithdrawal_zeroAmount() public useKatFork {
         // Zero amount should be no-op
+        skip(1);
+
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(0);
     }
@@ -1350,6 +1365,8 @@ contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
         remoteStrategy.pushFunds(depositAmount);
 
         // Request more than available
+        skip(1);
+
         vm.prank(keeper);
         remoteStrategy.processWithdrawal(100_000e6);
 
@@ -1704,7 +1721,7 @@ contract KatanaIntegrationTest is KatanaSetup {
         // 2. Calculate total assets
         // 3. Send message to origin
         vm.prank(keeper);
-        uint256 reportedAssets = remoteStrategy.report();
+        (uint256 reportedAssets, ) = remoteStrategy.report();
 
         assertEq(reportedAssets, amount, "Reported assets should match");
         assertEq(

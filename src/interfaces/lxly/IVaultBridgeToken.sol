@@ -18,27 +18,6 @@ interface IVaultBridgeToken {
         bool forceUpdateGlobalExitRoot
     ) external returns (uint256 shares);
 
-    /// @notice Deposit underlying assets and bridge with permit
-    /// @param assets Amount of underlying assets to deposit
-    /// @param receiver Address that will receive the bridged vbToken on destination
-    /// @param destinationNetworkId Network ID of the destination chain
-    /// @param forceUpdateGlobalExitRoot Force update of global exit root
-    /// @param deadline Permit deadline
-    /// @param v Permit signature v
-    /// @param r Permit signature r
-    /// @param s Permit signature s
-    /// @return shares Amount of vbToken shares minted and bridged
-    function depositWithPermitAndBridge(
-        uint256 assets,
-        address receiver,
-        uint32 destinationNetworkId,
-        bool forceUpdateGlobalExitRoot,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external returns (uint256 shares);
-
     /// @notice Claim bridged vbToken and redeem for underlying assets
     /// @param smtProofLocalExitRoot Merkle proof against network exit root
     /// @param smtProofRollupExitRoot Merkle proof against rollup exit root

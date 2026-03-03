@@ -31,6 +31,7 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
             _asset,
             _name,
             bytes32(uint256(_remoteNetworkId)),
+            747474,
             _remoteCounterpart,
             _depositer
         )

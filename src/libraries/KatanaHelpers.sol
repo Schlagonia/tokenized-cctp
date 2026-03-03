@@ -37,6 +37,8 @@ library KatanaHelpers {
         0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public constant ETHEREUM_USDT =
         0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address public constant ETHEREUM_USDS =
+        0xdC035D45d973E3EC169d2276DDab16f1e407384F;
     address public constant ETHEREUM_WBTC =
         0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
@@ -47,6 +49,7 @@ library KatanaHelpers {
     function getVbToken(address underlying) internal pure returns (address) {
         if (underlying == ETHEREUM_USDC) return VB_USDC;
         if (underlying == ETHEREUM_USDT) return VB_USDT;
+        if (underlying == ETHEREUM_USDS) return VB_USDS;
         if (underlying == ETHEREUM_WBTC) return VB_WBTC;
         if (underlying == address(0)) return VB_WETH; // Native ETH
         if (underlying == ETHEREUM_WETH) return VB_WETH; // Native ETH
