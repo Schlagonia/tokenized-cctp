@@ -18,17 +18,17 @@ contract DeployFactories is Script {
     function run() external {
         // Simple configuration - using deployer for all admin roles
         address management = deployer;
-        address performanceFeeRecipient = deployer;
-        address keeper = deployer;
-        address emergencyAdmin = deployer;
+        address performanceFeeRecipient = 0x5A74Cb32D36f2f517DB6f7b0A0591e09b22cDE69;
+        address keeper = 0x604e586F17cE106B64185A7a0d2c1Da5bAce711E;
+        address emergencyAdmin = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
         address governance = deployer;
         
-        bytes32 salt = bytes32(abi.encodePacked("remote factory test 2"));
+        bytes32 salt = bytes32(abi.encodePacked("remote cctp factory v1"));
 
         console.log("\n=================================");
         console.log("Deploying Factories");
         console.log("=================================\n");
-        /** 
+        
 
         // Deploy StrategyFactory on Ethereum mainnet
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
@@ -66,6 +66,7 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Ethereum StrategyFactory:", address(strategyFactory));
 
+        
         // Deploy RemoteStrategyFactory on Base
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
         vm.startBroadcast();
@@ -90,7 +91,7 @@ contract DeployFactories is Script {
         console.log("[DEPLOYED] Base RemoteStrategyFactory:", address(baseFactory));
 
         
-
+        /**
         // Deploy RemoteStrategyFactory on Polygon
         vm.createSelectFork(vm.envString("POLYGON_RPC_URL"));
         vm.startBroadcast();
@@ -113,13 +114,13 @@ contract DeployFactories is Script {
         vm.stopBroadcast();
 
         console.log("[DEPLOYED] Polygon RemoteStrategyFactory:", address(polygonFactory));
-        */
+        **/
 
         // Deploy RemoteStrategyFactory on Arbitrum
         vm.createSelectFork(vm.envString("ARB_RPC_URL"));
         vm.startBroadcast();
 
-        bytes memory creationCode = abi.encodePacked(
+        creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
                 governance,
@@ -144,8 +145,8 @@ contract DeployFactories is Script {
         console.log("\n=================================");
         console.log("DEPLOYMENT SUMMARY");
         console.log("=================================");
-        //console.log("Ethereum StrategyFactory:", address(strategyFactory));
-        //console.log("Base RemoteStrategyFactory:", address(baseFactory));
+        console.log("Ethereum StrategyFactory:", address(strategyFactory));
+        console.log("Base RemoteStrategyFactory:", address(baseFactory));
         //console.log("Polygon RemoteStrategyFactory:", address(polygonFactory));
         console.log("Arbitrum RemoteStrategyFactory:", address(arbFactory));
         console.log("=================================\n");
