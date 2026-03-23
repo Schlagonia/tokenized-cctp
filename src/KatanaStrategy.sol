@@ -50,7 +50,11 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
 
     function _harvestAndReport() internal override returns (uint256) {
         _redeemVaultTokens();
-        return super._harvestAndReport();
+        return super._harvestAndReport() + valueOfVault();
+    }
+
+    function valueOfVault() public view virtual returns (uint256) {
+        return VB_TOKEN.convertToAssets(VB_TOKEN.balanceOf(address(this)));
     }
 
     function redeemVaultTokens() external onlyKeepers {
@@ -58,9 +62,9 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
     }
 
     function _redeemVaultTokens() internal {
-        uint256 vbBalance = VB_TOKEN.balanceOf(address(this));
-        if (vbBalance > 0) {
-            VB_TOKEN.redeem(vbBalance, address(this), address(this));
+        uint256 maxRedeem = VB_TOKEN.maxRedeem(address(this));
+        if (maxRedeem > 0) {
+            VB_TOKEN.redeem(maxRedeem, address(this), address(this));
         }
     }
 
