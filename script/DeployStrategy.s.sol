@@ -11,19 +11,19 @@ contract DeployStrategy is Script {
     // ============================================
     // SET THESE FACTORY ADDRESSES AFTER DEPLOYING FACTORIES
     // ============================================
-    address constant MAINNET_FACTORY = 0x4C612ac56463d90379196eb3ea55A642A8140373; // SET THIS
-    address constant REMOTE_FACTORY = 0xeC583875ef771FAa0E37DdAfEF18cb99EaBB72Bd;    // SET THIS
+    address constant MAINNET_FACTORY = 0x90e5A75b5Ef2a88E7Dd79ca91FD9119cF1DBC1F0; // SET THIS
+    address constant REMOTE_FACTORY = 0x1c11C6e81dA692F9b4D50012fD69161535acFDeD;    // SET THIS
 
     // ============================================
     // STRATEGY PARAMETERS
     // ============================================
-    string constant STRATEGY_NAME = "USDC Test CCTP";
-    address constant DEPOSITER = 0xC62fC9b0bb3D9c7a47A6af1ed30d7a4C74E37774;
+    string constant STRATEGY_NAME = "Arbitrum PT sUSDai Feb 18 Morpho Looper";
+    address constant DEPOSITER = 0x696d02Db93291651ED510704c9b286841d506987;
 
     // Vault addresses
-    address constant BASE_VAULT = 0xF115C134c23C7A05FBD489A8bE3116EbF54B0D9f; // Morpho yearn compounder
-    address constant POLYGON_VAULT = 0xD811a47cfD17355F47ac49Be02c4744A926dd16B; // Fluid Compounder
-    address constant ARB_VAULT = 0x373C02BBdfb6c8bc678A5De2fA4A992c74a9E179;     // sUSDai Looper
+    address BASE_VAULT; // Morpho yearn compounder
+    address POLYGON_VAULT; // Fluid Compounder
+    address ARB_VAULT = 0x844cB3908172C9FdE0A42Ca6e4A13Ca09A2B44bD;     // sUSDai Looper
 
     function run() external {
             //deployStrategy(CCTPHelpers.BASE_DOMAIN, BASE_VAULT, "BASE_RPC_URL");
