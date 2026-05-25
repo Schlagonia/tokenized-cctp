@@ -84,9 +84,12 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
             "InvalidFinalityThreshold"
         );
 
-        uint256 amount = abi.decode(_messageBody, (uint256));
+        (uint256 amount, uint256 timestamp) = abi.decode(
+            _messageBody,
+            (uint256, uint256)
+        );
 
-        _handleIncomingMessage(amount);
+        _handleIncomingMessage(amount, timestamp);
 
         return true;
     }

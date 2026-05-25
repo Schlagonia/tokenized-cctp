@@ -335,6 +335,19 @@ contract Setup is Test, IEvents {
         }
     }
 
+    function encodeRemoteAssetsReport(
+        uint256 totalAssets
+    ) public view returns (bytes memory) {
+        return encodeRemoteAssetsReportAt(totalAssets, block.timestamp);
+    }
+
+    function encodeRemoteAssetsReportAt(
+        uint256 totalAssets,
+        uint256 timestamp
+    ) public pure returns (bytes memory) {
+        return abi.encode(totalAssets, timestamp);
+    }
+
     function calculateRemoteAssets(
         IStrategyInterface _strategy
     ) public view returns (uint256) {

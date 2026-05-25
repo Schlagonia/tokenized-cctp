@@ -541,7 +541,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     function test_onMessageReceived_success() public useEthFork {
         uint256 reportedAssets = 15_000e6;
 
-        bytes memory data = abi.encode(reportedAssets);
+        bytes memory data = abi.encode(reportedAssets, block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         strategy.onMessageReceived(
@@ -558,7 +558,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidBridge_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(user);
         vm.expectRevert("InvalidBridge");
@@ -570,7 +570,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidNetwork_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidNetwork");
@@ -582,7 +582,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidSender_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidSender");
@@ -652,7 +652,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     ) public useEthFork {
         _reportedAssets = bound(_reportedAssets, 1, 1_000_000_000e6);
 
-        bytes memory data = abi.encode(_reportedAssets);
+        bytes memory data = abi.encode(_reportedAssets, block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         strategy.onMessageReceived(
@@ -1108,7 +1108,7 @@ contract KatanaRemoteStrategyMessageTest is KatanaSetup {
     }
 
     function test_remote_onMessageReceived_reverts() public useKatFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         // onMessageReceived should always revert on remote strategy
         vm.prank(UNIFIED_BRIDGE);
@@ -1124,7 +1124,7 @@ contract KatanaRemoteStrategyMessageTest is KatanaSetup {
         public
         useKatFork
     {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(user);
         vm.expectRevert("NotSupported");

@@ -89,7 +89,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     {
         _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);
@@ -115,7 +115,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Send a report of the now current assets as well so accounting is correct.
         uint256 _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);

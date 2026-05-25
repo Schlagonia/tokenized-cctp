@@ -5,6 +5,7 @@ import {Setup} from "./utils/Setup.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IBaseRemoteStrategy} from "../interfaces/IBaseRemoteStrategy.sol";
 
 contract RemoteStrategyTests is Setup {
     function setUp() public override {
@@ -354,6 +355,36 @@ contract RemoteStrategyTests is Setup {
         vm.prank(governance);
         remoteStrategy.setKeeper(newKeeper, false);
         assertFalse(remoteStrategy.keepers(newKeeper));
+    }
+
+    function test_setAuctionControls() public useBaseFork {
+        IBaseRemoteStrategy remote = IBaseRemoteStrategy(
+            address(remoteStrategy)
+        );
+
+        uint256 minAmountToSell = 2_500e6;
+
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remote.setMinAmountToSell(minAmountToSell);
+
+        vm.prank(governance);
+        remote.setMinAmountToSell(minAmountToSell);
+        assertEq(remote.minAmountToSell(), minAmountToSell);
+
+        assertFalse(remote.useAuction());
+    }
+
+    function test_setAmountToTendThroughInterface() public useBaseFork {
+        IBaseRemoteStrategy remote = IBaseRemoteStrategy(
+            address(remoteStrategy)
+        );
+        uint256 amountToTend = 10_000e6;
+
+        vm.prank(governance);
+        remote.setAmountToTend(amountToTend);
+
+        assertEq(remote.amountToTend(), amountToTend);
     }
 
     function test_governanceIsImmutable() public useBaseFork {

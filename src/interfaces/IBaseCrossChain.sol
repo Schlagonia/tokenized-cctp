@@ -21,4 +21,12 @@ interface IBaseCrossChain is IBaseHealthCheck {
     /// @notice Tracks unreported profit/loss
     /// @return The unreported profit/loss
     function unreportedProfit() external view returns (int256);
+
+    /// @notice Total assets tracked on remote chain
+    /// @return Amount of assets deployed remotely
+    function remoteAssets() external view returns (uint256);
+
+    /// @notice Timestamp of the latest accepted remote assets report
+    /// @return Latest accepted report timestamp
+    function lastRemoteAssetsReport() external view returns (uint256);
 }

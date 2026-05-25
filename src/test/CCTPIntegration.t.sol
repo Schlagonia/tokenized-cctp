@@ -50,11 +50,15 @@ contract CCTPIntegrationTest is Setup {
         // Step 5: Send exposure report back (report() also pushes any remaining idle funds)
         vm.prank(keeper);
         (uint256 reportedAmount, ) = remoteStrategy.report();
+        uint256 reportTimestamp = block.timestamp;
 
         // Step 6: Process report on Ethereum
         vm.selectFork(ethFork);
 
-        bytes memory reportMessage = abi.encode(reportedAmount);
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            reportedAmount,
+            reportTimestamp
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -105,7 +109,10 @@ contract CCTPIntegrationTest is Setup {
 
         // Send updated remote assets (remaining after withdrawal)
         uint256 remainingRemote = depositAmount - withdrawAmount;
-        bytes memory messageBody = abi.encode(remainingRemote);
+        bytes memory messageBody = encodeRemoteAssetsReportAt(
+            remainingRemote,
+            strategy.lastRemoteAssetsReport() + 1
+        );
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -175,6 +182,7 @@ contract CCTPIntegrationTest is Setup {
         // Send exposure report (now returns total assets, not profit delta)
         vm.prank(keeper);
         (uint256 reportedTotalAssets, ) = remoteStrategy.report();
+        uint256 reportTimestamp = block.timestamp;
 
         // Total assets should equal vault value + loose balance (with some vault rounding)
         assertApproxEqAbs(reportedTotalAssets, totalValue, 1000);
@@ -185,7 +193,10 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with total remote assets
-        bytes memory reportMessage = abi.encode(reportedTotalAssets);
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            reportedTotalAssets,
+            reportTimestamp
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -223,6 +234,7 @@ contract CCTPIntegrationTest is Setup {
         skip(1);
         vm.prank(keeper);
         (uint256 reportedTotalAssets, ) = remoteStrategy.report();
+        uint256 reportTimestamp = block.timestamp;
 
         // Total assets should be approximately depositAmount - lossAmount (with vault rounding)
         assertApproxEqAbs(
@@ -237,7 +249,10 @@ contract CCTPIntegrationTest is Setup {
         uint256 sharesPriceBefore = strategy.pricePerShare();
 
         // Simulate message with total remote assets (after loss)
-        bytes memory reportMessage = abi.encode(reportedTotalAssets);
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            reportedTotalAssets,
+            reportTimestamp
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -300,10 +315,14 @@ contract CCTPIntegrationTest is Setup {
 
         vm.prank(keeper);
         (uint256 reportedTotalAssets, ) = remoteStrategy.report();
+        uint256 reportTimestamp = block.timestamp;
 
         // Report on Ethereum
         vm.selectFork(ethFork);
-        bytes memory reportMessage = abi.encode(reportedTotalAssets);
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            reportedTotalAssets,
+            reportTimestamp
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -347,10 +366,14 @@ contract CCTPIntegrationTest is Setup {
         skip(1);
         vm.prank(keeper);
         (uint256 reportedAssets, ) = remoteStrategy.report();
+        uint256 reportTimestamp = block.timestamp;
 
         // Process report on Ethereum
         vm.selectFork(ethFork);
-        bytes memory reportMessage = abi.encode(reportedAssets);
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            reportedAssets,
+            reportTimestamp
+        );
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,

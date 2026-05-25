@@ -23,6 +23,9 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Tracks remote assets
     uint256 public remoteAssets;
 
+    /// @notice Timestamp of the latest accepted remote assets report
+    uint256 public lastRemoteAssetsReport;
+
     constructor(
         address _asset,
         string memory _name,
@@ -80,10 +83,19 @@ abstract contract BaseCrossChain is BaseHealthCheck {
 
     /// @notice Handles incoming cross-chain messages
     /// @param amount Total amount of assets the remote strategy has.
-    function _handleIncomingMessage(uint256 amount) internal virtual {
+    /// @param timestamp Timestamp when the remote strategy sent the report.
+    function _handleIncomingMessage(
+        uint256 amount,
+        uint256 timestamp
+    ) internal virtual {
+        if (timestamp <= lastRemoteAssetsReport) {
+            return;
+        }
+
         // NOTE: Its possible a remote report while funds are in flight would cause an invalid report to cause incorrect losses.
         // We accept the amount either way since _harvestAndReport() will execute health check and make sure the message can
         // not be executed in the future. The next report will fully override so we only need last report to be valid.
+        lastRemoteAssetsReport = timestamp;
         remoteAssets = amount;
         emit RemoteAssetsUpdated(amount);
     }

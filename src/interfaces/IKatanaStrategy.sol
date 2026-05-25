@@ -28,10 +28,6 @@ interface IKatanaStrategy is IBaseCrossChain {
     /// @param _amount Amount to rescue
     function rescue(address _token, address _to, uint256 _amount) external;
 
-    /// @notice Total assets tracked on remote chain
-    /// @return Amount of assets deployed remotely
-    function remoteAssets() external view returns (uint256);
-
     /*//////////////////////////////////////////////////////////////
                         LXLY BRIDGE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -48,7 +44,7 @@ interface IKatanaStrategy is IBaseCrossChain {
     /// @dev Called by the bridge when a message is claimed
     /// @param originAddress The sender address on the origin network
     /// @param originNetwork The network ID where the message originated
-    /// @param data The message payload (encoded totalAssets)
+    /// @param data The message payload (encoded totalAssets and report timestamp)
     function onMessageReceived(
         address originAddress,
         uint32 originNetwork,

@@ -82,7 +82,7 @@ contract OperationTest is Setup {
 
         // Simulate remote strategy reporting total assets (original + profit)
         uint256 remoteTotal = _amount + profit;
-        bytes memory profitMessage = abi.encode(remoteTotal);
+        bytes memory profitMessage = encodeRemoteAssetsReport(remoteTotal);
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -115,7 +115,7 @@ contract OperationTest is Setup {
 
         // Simulate remote strategy reporting total assets after loss
         uint256 remoteTotal = _amount - loss;
-        bytes memory lossMessage = abi.encode(remoteTotal);
+        bytes memory lossMessage = encodeRemoteAssetsReport(remoteTotal);
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -143,7 +143,7 @@ contract OperationTest is Setup {
     // Test 7: Invalid sender/domain rejection
     function test_rejectInvalidSender() public useEthFork {
         uint256 _amount = 1000e6;
-        bytes memory message = abi.encode(_amount);
+        bytes memory message = encodeRemoteAssetsReport(_amount);
 
         // Wrong transmitter (should fail)
         vm.prank(user);
@@ -174,5 +174,48 @@ contract OperationTest is Setup {
             2000,
             message
         );
+    }
+
+    function test_remoteAssetTracking_ignoresStaleReports() public useEthFork {
+        uint256 _amount = 10000e6;
+        uint256 profit = 100e6;
+        uint256 loss = 500e6;
+
+        mintAndDepositIntoStrategy(strategy, depositor, _amount);
+
+        uint256 freshTimestamp = block.timestamp == 0 ? 1 : block.timestamp;
+        bytes memory freshMessage = encodeRemoteAssetsReportAt(
+            _amount + profit,
+            freshTimestamp
+        );
+
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        bool freshConsumed = strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            freshMessage
+        );
+
+        assertTrue(freshConsumed);
+        assertEq(strategy.remoteAssets(), _amount + profit);
+        assertEq(strategy.lastRemoteAssetsReport(), freshTimestamp);
+
+        bytes memory staleMessage = encodeRemoteAssetsReportAt(
+            _amount - loss,
+            freshTimestamp - 1
+        );
+
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        bool staleConsumed = strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            staleMessage
+        );
+
+        assertTrue(staleConsumed);
+        assertEq(strategy.remoteAssets(), _amount + profit);
+        assertEq(strategy.lastRemoteAssetsReport(), freshTimestamp);
     }
 }

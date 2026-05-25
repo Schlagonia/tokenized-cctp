@@ -2,10 +2,11 @@
 pragma solidity ^0.8.18;
 
 import {IGovernance} from "@periphery/interfaces/utils/IGovernance.sol";
+import {IAuctionSwapper} from "@periphery/swappers/interfaces/IAuctionSwapper.sol";
 
 /// @notice Interface for cross-chain strategies on remote chains
 /// @dev Extends IGovernance with remote strategy specific functionality
-interface IBaseRemoteStrategy is IGovernance {
+interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -22,6 +23,10 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @notice Emitted when shutdown status is updated
     /// @param isShutdown The new shutdown status
     event UpdatedIsShutdown(bool indexed isShutdown);
+
+    /// @notice Emitted when minimum amount to sell is updated
+    /// @param minAmountToSell The new minimum amount to sell
+    event UpdatedMinAmountToSell(uint256 indexed minAmountToSell);
 
     /// @notice Emitted when a report is sent
     /// @param totalAssets The total assets reported
@@ -54,6 +59,10 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @notice Maximum unlock time for profit distribution
     /// @return The profit max unlock time
     function profitMaxUnlockTime() external view returns (uint256);
+
+    /// @notice Minimum loose asset balance needed before tendTrigger returns true
+    /// @return The amount to tend threshold
+    function amountToTend() external view returns (uint256);
 
     /// @notice Timestamp of last report
     /// @return The last report timestamp
@@ -120,6 +129,10 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @param _auction The new auction address
     function setAuction(address _auction) external;
 
+    /// @notice Set the minimum amount to sell in auction trigger checks
+    /// @param _minAmountToSell Minimum amount needed to execute a sale
+    function setMinAmountToSell(uint256 _minAmountToSell) external;
+
     /// @notice Set the profit max unlock time
     /// @param _profitMaxUnlockTime The new profit max unlock time
     function setProfitMaxUnlockTime(uint256 _profitMaxUnlockTime) external;
@@ -127,4 +140,8 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @notice Set the shutdown status
     /// @param _isShutdown The new shutdown status
     function setIsShutdown(bool _isShutdown) external;
+
+    /// @notice Set the loose asset threshold needed to trigger tend
+    /// @param _amountToTend The new tend threshold
+    function setAmountToTend(uint256 _amountToTend) external;
 }

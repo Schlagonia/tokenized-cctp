@@ -16,6 +16,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     event UpdatedAmountToTend(uint256 indexed amountToTend);
 
+    event UpdatedMinAmountToSell(uint256 indexed minAmountToSell);
+
     event UpdatedKeeper(address indexed keeper, bool indexed status);
 
     event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
@@ -100,7 +102,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
         _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);
@@ -161,7 +163,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         // Send a report of the now current assets as well so accounting is correct.
         uint256 _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);
@@ -205,6 +207,14 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     function setAuction(address _auction) external virtual onlyGovernance {
         _setAuction(_auction);
+    }
+
+    function setMinAmountToSell(
+        uint256 _minAmountToSell
+    ) external virtual onlyGovernance {
+        _setMinAmountToSell(_minAmountToSell);
+
+        emit UpdatedMinAmountToSell(_minAmountToSell);
     }
 
     function setProfitMaxUnlockTime(

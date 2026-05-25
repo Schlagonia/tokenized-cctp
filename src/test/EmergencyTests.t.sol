@@ -26,7 +26,11 @@ contract EmergencyTests is Setup {
 
         // Simulate remote assets being reported (total remote assets = deposit + profit)
         uint256 totalRemoteAssets = depositAmount + remoteProfit;
-        bytes memory reportMessage = abi.encode(totalRemoteAssets);
+        uint256 reportTimestamp = block.timestamp == 0 ? 1 : block.timestamp;
+        bytes memory reportMessage = encodeRemoteAssetsReportAt(
+            totalRemoteAssets,
+            reportTimestamp
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -50,7 +54,10 @@ contract EmergencyTests is Setup {
 
         // After recovery, remote has: totalRemoteAssets - recoveredAmount
         uint256 remainingRemote = totalRemoteAssets - recoveredAmount;
-        bytes memory recoveryMessage = abi.encode(remainingRemote);
+        bytes memory recoveryMessage = encodeRemoteAssetsReportAt(
+            remainingRemote,
+            reportTimestamp + 1
+        );
 
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
@@ -89,7 +96,7 @@ contract EmergencyTests is Setup {
     //////////////////////////////////////////////////////////////*/
 
     function test_invalidSenderValidation() public useEthFork {
-        bytes memory messageBody = abi.encode(uint256(1000e6));
+        bytes memory messageBody = encodeRemoteAssetsReport(1000e6);
 
         // Wrong transmitter
         vm.prank(user);
