@@ -15,6 +15,14 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /// @param newKeeper The new keeper address
     event UpdateKeeper(address indexed newKeeper);
 
+    /// @notice Emitted when a withdrawal has been processed
+    /// @param amount Amount withdrawn
+    event WithdrawProcessed(uint256 indexed amount);
+
+    /// @notice Emitted when tend threshold is updated
+    /// @param amountToTend The new tend threshold
+    event UpdatedAmountToTend(uint256 indexed amountToTend);
+
     /// @notice Emitted when profit max unlock time is updated
     /// @param profitMaxUnlockTime The new profit max unlock time
     event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
@@ -51,14 +59,6 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /// @return The asset token address
     function asset() external view returns (address);
 
-    /// @notice The ERC4626 vault where assets are deployed
-    /// @return The vault address
-    function vault() external view returns (address);
-
-    /// @notice Assets deployed in the vault
-    /// @return The deployed assets amount
-    function deployedAssets() external view returns (uint256);
-
     /// @notice Maximum unlock time for profit distribution
     /// @return The profit max unlock time
     function profitMaxUnlockTime() external view returns (uint256);
@@ -81,6 +81,10 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
 
     /// @notice Calculate total assets held (vault + loose)
     function totalAssets() external view returns (uint256);
+
+    /// @notice Loose strategy asset balance
+    /// @return Balance of the strategy asset held locally
+    function balanceOfAsset() external view returns (uint256);
 
     /// @notice Calculate value of assets deployed in vault
     function valueOfDeployedAssets() external view returns (uint256);

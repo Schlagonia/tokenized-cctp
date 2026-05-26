@@ -22,6 +22,10 @@ interface IKatanaStrategy is IBaseCrossChain {
     /// @dev Only callable by keepers
     function redeemVaultTokens() external;
 
+    /// @notice Value of vbToken held by the strategy in underlying assets
+    /// @return The underlying asset value of held vbToken
+    function valueOfVault() external view returns (uint256);
+
     /// @notice Rescue tokens accidentally sent to this contract
     /// @param _token Token to rescue (cannot be the strategy asset)
     /// @param _to Recipient address
