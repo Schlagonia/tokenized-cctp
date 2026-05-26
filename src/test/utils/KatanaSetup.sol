@@ -235,7 +235,7 @@ contract KatanaSetup is Test, IEvents {
 
         // Set keeper
         vm.prank(governance);
-        remoteStrategy.setKeeper(keeper, true);
+        remoteStrategy.setKeeper(keeper);
     }
 
     function _deployEthereumContracts() internal {

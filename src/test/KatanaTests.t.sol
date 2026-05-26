@@ -1037,13 +1037,13 @@ contract KatanaRemoteStrategyVaultTest is KatanaSetup {
         airdropUSDC(address(remoteStrategy), 1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1_000e6);
     }
 
     function test_remote_pullFunds_onlyKeepers() public useKatFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(1_000e6);
     }
 
@@ -1179,7 +1179,7 @@ contract KatanaRemoteStrategyReportTest is KatanaSetup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
     }
 
@@ -1252,22 +1252,22 @@ contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
         address newKeeper = address(0xBEEF);
 
         vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, true);
-        assertTrue(remoteStrategy.keepers(newKeeper));
+        remoteStrategy.setKeeper(newKeeper);
+        assertEq(remoteStrategy.keeper(), newKeeper);
 
-        vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, false);
-        assertFalse(remoteStrategy.keepers(newKeeper));
+        vm.prank(keeper);
+        vm.expectRevert("!keeper");
+        remoteStrategy.pushFunds(0);
     }
 
     function test_remote_setKeeper_onlyGovernance() public useKatFork {
         vm.prank(user);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(address(0xBEEF), true);
+        remoteStrategy.setKeeper(address(0xBEEF));
 
         vm.prank(keeper);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(address(0xBEEF), true);
+        remoteStrategy.setKeeper(address(0xBEEF));
     }
 
     function test_remote_governanceIsKeeper() public useKatFork {
@@ -1282,23 +1282,23 @@ contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.tend();
     }
 }
@@ -1350,7 +1350,7 @@ contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
 
     function test_remote_processWithdrawal_onlyKeepers() public useKatFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1_000e6);
     }
 

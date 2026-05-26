@@ -12,9 +12,8 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Emitted when a keeper's status is updated
-    /// @param keeper The keeper address
-    /// @param status The new keeper status
-    event UpdatedKeeper(address indexed keeper, bool indexed status);
+    /// @param newKeeper The new keeper address
+    event UpdateKeeper(address indexed newKeeper);
 
     /// @notice Emitted when profit max unlock time is updated
     /// @param profitMaxUnlockTime The new profit max unlock time
@@ -76,10 +75,9 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /// @return The shutdown status
     function isShutdown() external view returns (bool);
 
-    /// @notice Addresses authorized to perform keeper operations
-    /// @param keeper The address to check
-    /// @return Whether the address is a keeper
-    function keepers(address keeper) external view returns (bool);
+    /// @notice Address authorized to perform keeper operations
+    /// @return The keeper address
+    function keeper() external view returns (address);
 
     /// @notice Calculate total assets held (vault + loose)
     function totalAssets() external view returns (uint256);
@@ -124,10 +122,9 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /// @return The amount actually withdrawn
     function pullFunds(uint256 _amount) external returns (uint256);
 
-    /// @notice Set keeper status for an address
-    /// @param _address Address to update
-    /// @param _allowed Whether address should have keeper privileges
-    function setKeeper(address _address, bool _allowed) external;
+    /// @notice Set the keeper address
+    /// @param _keeper New keeper address
+    function setKeeper(address _keeper) external;
 
     /// @notice Set the auction address
     /// @param _auction The new auction address

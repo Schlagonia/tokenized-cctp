@@ -243,7 +243,7 @@ contract Setup is Test, IEvents {
         );
 
         vm.prank(governance);
-        _remoteStrategy.setKeeper(keeper, true);
+        _remoteStrategy.setKeeper(keeper);
     }
 
     function depositIntoStrategy(

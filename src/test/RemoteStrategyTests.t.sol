@@ -40,8 +40,7 @@ contract RemoteStrategyTests is Setup {
     }
 
     function test_remoteKeepersSet() public useBaseFork {
-        assertTrue(remoteStrategy.keepers(keeper));
-        assertFalse(remoteStrategy.keepers(user));
+        assertEq(remoteStrategy.keeper(), keeper);
     }
 
     function test_remoteCCTPConfiguration() public useBaseFork {
@@ -176,7 +175,7 @@ contract RemoteStrategyTests is Setup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
 
         vm.prank(keeper);
@@ -274,7 +273,7 @@ contract RemoteStrategyTests is Setup {
 
     function test_onlyKeepersCanProcessWithdrawal() public useBaseFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1000e6);
 
         skip(1);
@@ -324,11 +323,11 @@ contract RemoteStrategyTests is Setup {
 
     function test_onlyKeepersCanPushPull() public useBaseFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(100e6); // Amount in USDC
 
         // Keepers should succeed
@@ -349,17 +348,16 @@ contract RemoteStrategyTests is Setup {
         // Non-governance cannot set keeper
         vm.prank(user);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(newKeeper, true);
+        remoteStrategy.setKeeper(newKeeper);
 
         // Governance can set keeper
         vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, true);
-        assertTrue(remoteStrategy.keepers(newKeeper));
+        remoteStrategy.setKeeper(newKeeper);
+        assertEq(remoteStrategy.keeper(), newKeeper);
 
-        // Can also remove
-        vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, false);
-        assertFalse(remoteStrategy.keepers(newKeeper));
+        vm.prank(keeper);
+        vm.expectRevert("!keeper");
+        remoteStrategy.pushFunds(0);
     }
 
     function test_setAuctionControls() public useBaseFork {

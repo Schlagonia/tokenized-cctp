@@ -21,7 +21,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         uint256 indexed minAmountToSell
     );
 
-    event UpdatedKeeper(address indexed keeper, bool indexed status);
+    event UpdateKeeper(address indexed newKeeper);
 
     event UpdatedProfitMaxUnlockTime(uint256 indexed profitMaxUnlockTime);
 
@@ -37,7 +37,7 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     }
 
     function _requireIsKeeper(address _sender) internal view virtual {
-        require(_sender == governance || keepers[_sender], "NotKeeper");
+        require(_sender == governance || _sender == keeper, "!keeper");
     }
 
     /// @notice The asset token for this strategy
@@ -62,8 +62,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @notice Used to match TokenizedStrategy interface for triggers.
     uint256 public profitMaxUnlockTime;
 
-    /// @notice Addresses authorized to perform keeper operations
-    mapping(address => bool) public keepers;
+    /// @notice Address authorized to perform keeper operations
+    address public keeper;
 
     constructor(
         address _asset,
@@ -196,16 +196,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
         return _kickAuction(_token);
     }
 
-    /// @notice Set keeper status for an address
-    /// @param _address Address to update
-    /// @param _allowed Whether address should have keeper privileges
-    function setKeeper(
-        address _address,
-        bool _allowed
-    ) external virtual onlyGovernance {
-        keepers[_address] = _allowed;
+    /// @notice Set the keeper address
+    /// @param _keeper New keeper address
+    function setKeeper(address _keeper) external virtual onlyGovernance {
+        keeper = _keeper;
 
-        emit UpdatedKeeper(_address, _allowed);
+        emit UpdateKeeper(_keeper);
     }
 
     function setAuction(address _auction) external virtual onlyGovernance {
