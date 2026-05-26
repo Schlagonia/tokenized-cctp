@@ -25,8 +25,12 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     event UpdatedIsShutdown(bool indexed isShutdown);
 
     /// @notice Emitted when minimum amount to sell is updated
+    /// @param token The token being configured
     /// @param minAmountToSell The new minimum amount to sell
-    event UpdatedMinAmountToSell(uint256 indexed minAmountToSell);
+    event UpdatedMinAmountToSell(
+        address indexed token,
+        uint256 indexed minAmountToSell
+    );
 
     /// @notice Emitted when a report is sent
     /// @param totalAssets The total assets reported
@@ -130,8 +134,12 @@ interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     function setAuction(address _auction) external;
 
     /// @notice Set the minimum amount to sell in auction trigger checks
+    /// @param _token Token to configure
     /// @param _minAmountToSell Minimum amount needed to execute a sale
-    function setMinAmountToSell(uint256 _minAmountToSell) external;
+    function setMinAmountToSell(
+        address _token,
+        uint256 _minAmountToSell
+    ) external;
 
     /// @notice Set the profit max unlock time
     /// @param _profitMaxUnlockTime The new profit max unlock time

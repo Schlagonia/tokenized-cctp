@@ -32,6 +32,11 @@ contract RemoteStrategyTests is Setup {
         assertEq(remoteStrategy.REMOTE_COUNTERPART(), address(strategy));
         assertEq(remoteStrategy.REMOTE_ID(), bytes32(uint256(ETHEREUM_DOMAIN)));
         assertEq(remoteStrategy.governance(), governance);
+
+        address[] memory protectedTokens = remoteStrategy.protectedTokens();
+        assertEq(protectedTokens.length, 2);
+        assertEq(protectedTokens[0], address(USDC_BASE));
+        assertEq(protectedTokens[1], address(vault));
     }
 
     function test_remoteKeepersSet() public useBaseFork {
@@ -363,14 +368,15 @@ contract RemoteStrategyTests is Setup {
         );
 
         uint256 minAmountToSell = 2_500e6;
+        address token = address(0xBEEF);
 
         vm.prank(user);
         vm.expectRevert("!governance");
-        remote.setMinAmountToSell(minAmountToSell);
+        remote.setMinAmountToSell(token, minAmountToSell);
 
         vm.prank(governance);
-        remote.setMinAmountToSell(minAmountToSell);
-        assertEq(remote.minAmountToSell(), minAmountToSell);
+        remote.setMinAmountToSell(token, minAmountToSell);
+        assertEq(remote.minAmountToSell(token), minAmountToSell);
 
         assertFalse(remote.useAuction());
     }

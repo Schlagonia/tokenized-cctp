@@ -54,4 +54,17 @@ abstract contract BaseRemote4626 is BaseRemoteStrategy {
     function valueOfDeployedAssets() public view override returns (uint256) {
         return vault.convertToAssets(vault.balanceOf(address(this)));
     }
+
+    /// @notice Tokens that should never be kicked into auction.
+    function protectedTokens()
+        public
+        view
+        virtual
+        override
+        returns (address[] memory _protectedTokens)
+    {
+        _protectedTokens = new address[](2);
+        _protectedTokens[0] = address(asset);
+        _protectedTokens[1] = address(vault);
+    }
 }

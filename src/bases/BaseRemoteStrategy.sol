@@ -16,7 +16,10 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     event UpdatedAmountToTend(uint256 indexed amountToTend);
 
-    event UpdatedMinAmountToSell(uint256 indexed minAmountToSell);
+    event UpdatedMinAmountToSell(
+        address indexed token,
+        uint256 indexed minAmountToSell
+    );
 
     event UpdatedKeeper(address indexed keeper, bool indexed status);
 
@@ -210,11 +213,12 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     }
 
     function setMinAmountToSell(
+        address _token,
         uint256 _minAmountToSell
     ) external virtual onlyGovernance {
-        _setMinAmountToSell(_minAmountToSell);
+        _setMinAmountToSell(_token, _minAmountToSell);
 
-        emit UpdatedMinAmountToSell(_minAmountToSell);
+        emit UpdatedMinAmountToSell(_token, _minAmountToSell);
     }
 
     function setProfitMaxUnlockTime(
@@ -248,6 +252,18 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
 
     function balanceOfAsset() public view virtual returns (uint256) {
         return asset.balanceOf(address(this));
+    }
+
+    /// @notice Tokens that should never be kicked into auction.
+    function protectedTokens()
+        public
+        view
+        virtual
+        override
+        returns (address[] memory _protectedTokens)
+    {
+        _protectedTokens = new address[](1);
+        _protectedTokens[0] = address(asset);
     }
 
     /// @dev Should round down when applicable to avoid dust losses.
