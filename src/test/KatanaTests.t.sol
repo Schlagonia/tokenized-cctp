@@ -800,6 +800,14 @@ contract KatanaStrategyRescueTest is KatanaSetup {
         strategy.rescue(address(asset), user, rescueAmount);
     }
 
+    function test_rescue_vbToken_reverts() public useEthFork {
+        uint256 vbShares = getVbTokenIntoStrategy(1000e6);
+
+        vm.prank(management);
+        vm.expectRevert("InvalidToken");
+        strategy.rescue(address(vbToken), user, vbShares);
+    }
+
     function test_rescue_partialAmount() public useEthFork {
         uint256 totalAmount = 1000e18;
         uint256 rescueAmount = 500e18;
