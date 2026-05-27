@@ -82,7 +82,10 @@ contract OperationTest is Setup {
 
         // Simulate remote strategy reporting total assets (original + profit)
         uint256 remoteTotal = _amount + profit;
-        bytes memory profitMessage = encodeRemoteAssetsReport(remoteTotal);
+        bytes memory profitMessage = encodeRemoteAssetsReportAt(
+            remoteTotal,
+            strategy.lastRemoteAssetsReport() + 1
+        );
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -115,7 +118,10 @@ contract OperationTest is Setup {
 
         // Simulate remote strategy reporting total assets after loss
         uint256 remoteTotal = _amount - loss;
-        bytes memory lossMessage = encodeRemoteAssetsReport(remoteTotal);
+        bytes memory lossMessage = encodeRemoteAssetsReportAt(
+            remoteTotal,
+            strategy.lastRemoteAssetsReport() + 1
+        );
         vm.prank(address(ETH_MESSAGE_TRANSMITTER));
         strategy.handleReceiveFinalizedMessage(
             BASE_DOMAIN,
@@ -183,7 +189,7 @@ contract OperationTest is Setup {
 
         mintAndDepositIntoStrategy(strategy, depositor, _amount);
 
-        uint256 freshTimestamp = block.timestamp == 0 ? 1 : block.timestamp;
+        uint256 freshTimestamp = strategy.lastRemoteAssetsReport() + 1;
         bytes memory freshMessage = encodeRemoteAssetsReportAt(
             _amount + profit,
             freshTimestamp
@@ -217,5 +223,37 @@ contract OperationTest is Setup {
         assertTrue(staleConsumed);
         assertEq(strategy.remoteAssets(), _amount + profit);
         assertEq(strategy.lastRemoteAssetsReport(), freshTimestamp);
+    }
+
+    function test_deployTimestampRejectsPreDepositReport()
+        public
+        useEthFork
+    {
+        uint256 _amount = 10000e6;
+        uint256 staleRemoteTotal = 9000e6;
+
+        mintAndDepositIntoStrategy(strategy, depositor, _amount);
+
+        uint256 depositTimestamp = strategy.lastRemoteAssetsReport();
+        assertEq(strategy.remoteAssets(), _amount);
+
+        uint256 staleReportTimestamp = depositTimestamp == 0
+            ? 0
+            : depositTimestamp - 1;
+        bytes memory staleReportMessage = encodeRemoteAssetsReportAt(
+            staleRemoteTotal,
+            staleReportTimestamp
+        );
+
+        vm.prank(address(ETH_MESSAGE_TRANSMITTER));
+        strategy.handleReceiveFinalizedMessage(
+            BASE_DOMAIN,
+            bytes32(uint256(uint160(address(remoteStrategy)))),
+            2000,
+            staleReportMessage
+        );
+
+        assertEq(strategy.remoteAssets(), _amount);
+        assertEq(strategy.lastRemoteAssetsReport(), depositTimestamp);
     }
 }

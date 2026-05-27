@@ -273,6 +273,11 @@ contract KatanaStrategyDepositBridgeTest is KatanaSetup {
             remoteAssetsBefore + depositAmount,
             "Remote assets should increase by deposit amount"
         );
+        assertEq(
+            strategy.lastRemoteAssetsReport(),
+            block.timestamp,
+            "Deposit should update report watermark"
+        );
 
         // Verify no USDC left in strategy (all bridged via vbToken)
         assertEq(
@@ -280,6 +285,38 @@ contract KatanaStrategyDepositBridgeTest is KatanaSetup {
             usdcBefore,
             "Strategy should have no USDC after bridge"
         );
+    }
+
+    function test_deposit_rejectsPreDepositReport() public useEthFork {
+        uint256 depositAmount = 10_000e6;
+        uint256 staleRemoteTotal = 9_000e6;
+
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        uint256 depositTimestamp = strategy.lastRemoteAssetsReport();
+
+        uint256 staleReportTimestamp = depositTimestamp == 0
+            ? 0
+            : depositTimestamp - 1;
+        bytes memory data = abi.encode(staleRemoteTotal, staleReportTimestamp);
+
+        vm.prank(UNIFIED_BRIDGE);
+        strategy.onMessageReceived(
+            address(remoteStrategy),
+            KATANA_NETWORK_ID,
+            data
+        );
+
+        assertEq(
+            strategy.remoteAssets(),
+            depositAmount,
+            "Pre-deposit report should not overwrite deposit"
+        );
+        assertEq(strategy.lastRemoteAssetsReport(), depositTimestamp);
     }
 
     function test_deposit_onlyDepositorCanDeposit() public useEthFork {

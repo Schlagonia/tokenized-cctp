@@ -28,8 +28,8 @@ interface IBaseCrossChain is IBaseHealthCheck {
     /// @return Amount of assets deployed remotely
     function remoteAssets() external view returns (uint256);
 
-    /// @notice Timestamp of the latest accepted remote assets report
-    /// @return Latest accepted report timestamp
+    /// @notice Timestamp watermark for remote asset updates
+    /// @return Latest accepted report or local deploy timestamp
     function lastRemoteAssetsReport() external view returns (uint256);
 
     /// @notice Loose strategy asset balance

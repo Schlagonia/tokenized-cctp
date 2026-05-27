@@ -26,7 +26,7 @@ contract EmergencyTests is Setup {
 
         // Simulate remote assets being reported (total remote assets = deposit + profit)
         uint256 totalRemoteAssets = depositAmount + remoteProfit;
-        uint256 reportTimestamp = block.timestamp == 0 ? 1 : block.timestamp;
+        uint256 reportTimestamp = strategy.lastRemoteAssetsReport() + 1;
         bytes memory reportMessage = encodeRemoteAssetsReportAt(
             totalRemoteAssets,
             reportTimestamp
