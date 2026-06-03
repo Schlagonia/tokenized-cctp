@@ -231,7 +231,11 @@ contract CCTPIntegrationTest is Setup {
         vault.transfer(address(69), lossShares);
 
         // Send exposure report (now returns total assets, which reflects the loss)
-        skip(1);
+        vm.selectFork(ethFork);
+        uint256 nextReportTimestamp = strategy.lastRemoteAssetsReport() + 1;
+        vm.selectFork(baseFork);
+        vm.warp(nextReportTimestamp);
+
         vm.prank(keeper);
         (uint256 reportedTotalAssets, ) = remoteStrategy.report();
         uint256 reportTimestamp = block.timestamp;
