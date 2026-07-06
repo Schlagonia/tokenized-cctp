@@ -17,13 +17,13 @@ contract DeployFactories is Script {
 
     function run() external {
         // Simple configuration - using deployer for all admin roles
-        address management = deployer;
+        address management = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
         address performanceFeeRecipient = 0x5A74Cb32D36f2f517DB6f7b0A0591e09b22cDE69;
         address keeper = 0x604e586F17cE106B64185A7a0d2c1Da5bAce711E;
         address emergencyAdmin = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
         address governance = deployer;
         
-        bytes32 salt = bytes32(abi.encodePacked("remote cctp factory v1"));
+        bytes32 salt = bytes32(abi.encodePacked("remote cctp factory v2"));
 
         console.log("\n=================================");
         console.log("Deploying Factories");
