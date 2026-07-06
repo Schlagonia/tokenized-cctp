@@ -273,6 +273,11 @@ contract KatanaStrategyDepositBridgeTest is KatanaSetup {
             remoteAssetsBefore + depositAmount,
             "Remote assets should increase by deposit amount"
         );
+        assertEq(
+            strategy.lastRemoteAssetsReport(),
+            block.timestamp,
+            "Deposit should update report watermark"
+        );
 
         // Verify no USDC left in strategy (all bridged via vbToken)
         assertEq(
@@ -280,6 +285,38 @@ contract KatanaStrategyDepositBridgeTest is KatanaSetup {
             usdcBefore,
             "Strategy should have no USDC after bridge"
         );
+    }
+
+    function test_deposit_rejectsPreDepositReport() public useEthFork {
+        uint256 depositAmount = 10_000e6;
+        uint256 staleRemoteTotal = 9_000e6;
+
+        airdropUSDC(depositor, depositAmount);
+        vm.startPrank(depositor);
+        IERC20(USDC).approve(address(strategy), depositAmount);
+        strategy.deposit(depositAmount, depositor);
+        vm.stopPrank();
+
+        uint256 depositTimestamp = strategy.lastRemoteAssetsReport();
+
+        uint256 staleReportTimestamp = depositTimestamp == 0
+            ? 0
+            : depositTimestamp - 1;
+        bytes memory data = abi.encode(staleRemoteTotal, staleReportTimestamp);
+
+        vm.prank(UNIFIED_BRIDGE);
+        strategy.onMessageReceived(
+            address(remoteStrategy),
+            KATANA_NETWORK_ID,
+            data
+        );
+
+        assertEq(
+            strategy.remoteAssets(),
+            depositAmount,
+            "Pre-deposit report should not overwrite deposit"
+        );
+        assertEq(strategy.lastRemoteAssetsReport(), depositTimestamp);
     }
 
     function test_deposit_onlyDepositorCanDeposit() public useEthFork {
@@ -541,7 +578,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     function test_onMessageReceived_success() public useEthFork {
         uint256 reportedAssets = 15_000e6;
 
-        bytes memory data = abi.encode(reportedAssets);
+        bytes memory data = abi.encode(reportedAssets, block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         strategy.onMessageReceived(
@@ -558,7 +595,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidBridge_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(user);
         vm.expectRevert("InvalidBridge");
@@ -570,7 +607,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidNetwork_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidNetwork");
@@ -582,7 +619,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     }
 
     function test_onMessageReceived_invalidSender_reverts() public useEthFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         vm.expectRevert("InvalidSender");
@@ -652,7 +689,7 @@ contract KatanaStrategyMessageTest is KatanaSetup {
     ) public useEthFork {
         _reportedAssets = bound(_reportedAssets, 1, 1_000_000_000e6);
 
-        bytes memory data = abi.encode(_reportedAssets);
+        bytes memory data = abi.encode(_reportedAssets, block.timestamp);
 
         vm.prank(UNIFIED_BRIDGE);
         strategy.onMessageReceived(
@@ -798,6 +835,14 @@ contract KatanaStrategyRescueTest is KatanaSetup {
         vm.prank(management);
         vm.expectRevert("InvalidToken");
         strategy.rescue(address(asset), user, rescueAmount);
+    }
+
+    function test_rescue_vbToken_reverts() public useEthFork {
+        uint256 vbShares = getVbTokenIntoStrategy(1000e6);
+
+        vm.prank(management);
+        vm.expectRevert("InvalidToken");
+        strategy.rescue(address(vbToken), user, vbShares);
     }
 
     function test_rescue_partialAmount() public useEthFork {
@@ -1037,13 +1082,13 @@ contract KatanaRemoteStrategyVaultTest is KatanaSetup {
         airdropUSDC(address(remoteStrategy), 1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1_000e6);
     }
 
     function test_remote_pullFunds_onlyKeepers() public useKatFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(1_000e6);
     }
 
@@ -1108,7 +1153,7 @@ contract KatanaRemoteStrategyMessageTest is KatanaSetup {
     }
 
     function test_remote_onMessageReceived_reverts() public useKatFork {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         // onMessageReceived should always revert on remote strategy
         vm.prank(UNIFIED_BRIDGE);
@@ -1124,7 +1169,7 @@ contract KatanaRemoteStrategyMessageTest is KatanaSetup {
         public
         useKatFork
     {
-        bytes memory data = abi.encode(uint256(10_000e6));
+        bytes memory data = abi.encode(uint256(10_000e6), block.timestamp);
 
         vm.prank(user);
         vm.expectRevert("NotSupported");
@@ -1179,7 +1224,7 @@ contract KatanaRemoteStrategyReportTest is KatanaSetup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
     }
 
@@ -1252,22 +1297,22 @@ contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
         address newKeeper = address(0xBEEF);
 
         vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, true);
-        assertTrue(remoteStrategy.keepers(newKeeper));
+        remoteStrategy.setKeeper(newKeeper);
+        assertEq(remoteStrategy.keeper(), newKeeper);
 
-        vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, false);
-        assertFalse(remoteStrategy.keepers(newKeeper));
+        vm.prank(keeper);
+        vm.expectRevert("!keeper");
+        remoteStrategy.pushFunds(0);
     }
 
     function test_remote_setKeeper_onlyGovernance() public useKatFork {
         vm.prank(user);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(address(0xBEEF), true);
+        remoteStrategy.setKeeper(address(0xBEEF));
 
         vm.prank(keeper);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(address(0xBEEF), true);
+        remoteStrategy.setKeeper(address(0xBEEF));
     }
 
     function test_remote_governanceIsKeeper() public useKatFork {
@@ -1282,23 +1327,23 @@ contract KatanaRemoteStrategyKeeperTest is KatanaSetup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1_000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.tend();
     }
 }
@@ -1350,7 +1395,7 @@ contract KatanaRemoteStrategyProcessWithdrawalTest is KatanaSetup {
 
     function test_remote_processWithdrawal_onlyKeepers() public useKatFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1_000e6);
     }
 

@@ -7,6 +7,13 @@ import {IBaseCCTP} from "./IBaseCCTP.sol";
 /// @notice Interface for CCTP Remote Strategy on remote chains
 /// @dev Combines remote strategy functionality with CCTP messaging
 interface ICCTPRemoteStrategy is IBaseRemoteStrategy, IBaseCCTP {
-    // All functionality inherited from IBaseRemoteStrategy and IBaseCCTP
-    // No additional CCTP-specific functions beyond the base interfaces
+    /// @notice The ERC4626 vault where assets are deployed
+    /// @return The vault address
+    function vault() external view returns (address);
+
+    /// @notice Rescue tokens accidentally sent to this contract
+    /// @param _token Token to rescue
+    /// @param _to Recipient address
+    /// @param _amount Amount to rescue
+    function rescue(address _token, address _to, uint256 _amount) external;
 }

@@ -235,7 +235,7 @@ contract KatanaSetup is Test, IEvents {
 
         // Set keeper
         vm.prank(governance);
-        remoteStrategy.setKeeper(keeper, true);
+        remoteStrategy.setKeeper(keeper);
     }
 
     function _deployEthereumContracts() internal {
@@ -349,8 +349,19 @@ contract KatanaSetup is Test, IEvents {
     /// @param totalAssets The total assets reported by remote strategy
     function simulateBridgeMessage(uint256 totalAssets) public {
         vm.selectFork(ethFork);
+        simulateBridgeMessageAt(
+            totalAssets,
+            strategy.lastRemoteAssetsReport() + 1
+        );
+    }
 
-        bytes memory data = abi.encode(totalAssets);
+    function simulateBridgeMessageAt(
+        uint256 totalAssets,
+        uint256 timestamp
+    ) public {
+        vm.selectFork(ethFork);
+
+        bytes memory data = abi.encode(totalAssets, timestamp);
 
         // Prank as the bridge to call onMessageReceived
         vm.prank(UNIFIED_BRIDGE);

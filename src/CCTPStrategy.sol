@@ -84,9 +84,12 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
             "InvalidFinalityThreshold"
         );
 
-        uint256 amount = abi.decode(_messageBody, (uint256));
+        (uint256 amount, uint256 timestamp) = abi.decode(
+            _messageBody,
+            (uint256, uint256)
+        );
 
-        _handleIncomingMessage(amount);
+        _handleIncomingMessage(amount, timestamp);
 
         return true;
     }
@@ -96,7 +99,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
         address _to,
         uint256 _amount
     ) external onlyManagement {
-        require(_token != address(asset), "Invalid token");
+        require(_token != address(asset), "InvalidToken");
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }

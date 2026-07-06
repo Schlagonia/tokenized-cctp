@@ -5,6 +5,7 @@ import {Setup} from "./utils/Setup.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IBaseRemoteStrategy} from "../interfaces/IBaseRemoteStrategy.sol";
 
 contract RemoteStrategyTests is Setup {
     function setUp() public override {
@@ -31,11 +32,15 @@ contract RemoteStrategyTests is Setup {
         assertEq(remoteStrategy.REMOTE_COUNTERPART(), address(strategy));
         assertEq(remoteStrategy.REMOTE_ID(), bytes32(uint256(ETHEREUM_DOMAIN)));
         assertEq(remoteStrategy.governance(), governance);
+
+        address[] memory protectedTokens = remoteStrategy.protectedTokens();
+        assertEq(protectedTokens.length, 2);
+        assertEq(protectedTokens[0], address(USDC_BASE));
+        assertEq(protectedTokens[1], address(vault));
     }
 
     function test_remoteKeepersSet() public useBaseFork {
-        assertTrue(remoteStrategy.keepers(keeper));
-        assertFalse(remoteStrategy.keepers(user));
+        assertEq(remoteStrategy.keeper(), keeper);
     }
 
     function test_remoteCCTPConfiguration() public useBaseFork {
@@ -170,7 +175,7 @@ contract RemoteStrategyTests is Setup {
         skip(1);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.report();
 
         vm.prank(keeper);
@@ -268,7 +273,7 @@ contract RemoteStrategyTests is Setup {
 
     function test_onlyKeepersCanProcessWithdrawal() public useBaseFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.processWithdrawal(1000e6);
 
         skip(1);
@@ -318,11 +323,11 @@ contract RemoteStrategyTests is Setup {
 
     function test_onlyKeepersCanPushPull() public useBaseFork {
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pushFunds(1000e6);
 
         vm.prank(user);
-        vm.expectRevert("NotKeeper");
+        vm.expectRevert("!keeper");
         remoteStrategy.pullFunds(100e6); // Amount in USDC
 
         // Keepers should succeed
@@ -343,17 +348,47 @@ contract RemoteStrategyTests is Setup {
         // Non-governance cannot set keeper
         vm.prank(user);
         vm.expectRevert("!governance");
-        remoteStrategy.setKeeper(newKeeper, true);
+        remoteStrategy.setKeeper(newKeeper);
 
         // Governance can set keeper
         vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, true);
-        assertTrue(remoteStrategy.keepers(newKeeper));
+        remoteStrategy.setKeeper(newKeeper);
+        assertEq(remoteStrategy.keeper(), newKeeper);
 
-        // Can also remove
+        vm.prank(keeper);
+        vm.expectRevert("!keeper");
+        remoteStrategy.pushFunds(0);
+    }
+
+    function test_setAuctionControls() public useBaseFork {
+        IBaseRemoteStrategy remote = IBaseRemoteStrategy(
+            address(remoteStrategy)
+        );
+
+        uint256 minAmountToSell = 2_500e6;
+        address token = address(0xBEEF);
+
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remote.setMinAmountToSell(token, minAmountToSell);
+
         vm.prank(governance);
-        remoteStrategy.setKeeper(newKeeper, false);
-        assertFalse(remoteStrategy.keepers(newKeeper));
+        remote.setMinAmountToSell(token, minAmountToSell);
+        assertEq(remote.minAmountToSell(token), minAmountToSell);
+
+        assertFalse(remote.useAuction());
+    }
+
+    function test_setAmountToTendThroughInterface() public useBaseFork {
+        IBaseRemoteStrategy remote = IBaseRemoteStrategy(
+            address(remoteStrategy)
+        );
+        uint256 amountToTend = 10_000e6;
+
+        vm.prank(governance);
+        remote.setAmountToTend(amountToTend);
+
+        assertEq(remote.amountToTend(), amountToTend);
     }
 
     function test_governanceIsImmutable() public useBaseFork {

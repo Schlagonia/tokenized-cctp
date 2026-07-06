@@ -89,7 +89,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     {
         _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);
@@ -115,7 +115,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         // Send a report of the now current assets as well so accounting is correct.
         uint256 _totalAssets = totalAssets();
 
-        bytes memory messageBody = abi.encode(_totalAssets);
+        bytes memory messageBody = abi.encode(_totalAssets, block.timestamp);
         _bridgeMessage(messageBody);
 
         emit Reported(_totalAssets);
@@ -296,7 +296,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
         address _to,
         uint256 _amount
     ) external onlyGovernance {
-        require(_token != address(asset), "Invalid token");
+        require(!_isProtectedToken(_token), "InvalidToken");
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }

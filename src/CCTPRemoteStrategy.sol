@@ -82,10 +82,7 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
         address _to,
         uint256 _amount
     ) external onlyGovernance {
-        require(
-            _token != address(asset) && _token != address(vault),
-            "Invalid token"
-        );
+        require(!_isProtectedToken(_token), "InvalidToken");
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }

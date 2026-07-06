@@ -2,18 +2,26 @@
 pragma solidity ^0.8.18;
 
 import {IGovernance} from "@periphery/interfaces/utils/IGovernance.sol";
+import {IAuctionSwapper} from "@periphery/swappers/interfaces/IAuctionSwapper.sol";
 
 /// @notice Interface for cross-chain strategies on remote chains
 /// @dev Extends IGovernance with remote strategy specific functionality
-interface IBaseRemoteStrategy is IGovernance {
+interface IBaseRemoteStrategy is IGovernance, IAuctionSwapper {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Emitted when a keeper's status is updated
-    /// @param keeper The keeper address
-    /// @param status The new keeper status
-    event UpdatedKeeper(address indexed keeper, bool indexed status);
+    /// @param newKeeper The new keeper address
+    event UpdateKeeper(address indexed newKeeper);
+
+    /// @notice Emitted when a withdrawal has been processed
+    /// @param amount Amount withdrawn
+    event WithdrawProcessed(uint256 indexed amount);
+
+    /// @notice Emitted when tend threshold is updated
+    /// @param amountToTend The new tend threshold
+    event UpdatedAmountToTend(uint256 indexed amountToTend);
 
     /// @notice Emitted when profit max unlock time is updated
     /// @param profitMaxUnlockTime The new profit max unlock time
@@ -22,6 +30,14 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @notice Emitted when shutdown status is updated
     /// @param isShutdown The new shutdown status
     event UpdatedIsShutdown(bool indexed isShutdown);
+
+    /// @notice Emitted when minimum amount to sell is updated
+    /// @param token The token being configured
+    /// @param minAmountToSell The new minimum amount to sell
+    event UpdatedMinAmountToSell(
+        address indexed token,
+        uint256 indexed minAmountToSell
+    );
 
     /// @notice Emitted when a report is sent
     /// @param totalAssets The total assets reported
@@ -43,17 +59,13 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @return The asset token address
     function asset() external view returns (address);
 
-    /// @notice The ERC4626 vault where assets are deployed
-    /// @return The vault address
-    function vault() external view returns (address);
-
-    /// @notice Assets deployed in the vault
-    /// @return The deployed assets amount
-    function deployedAssets() external view returns (uint256);
-
     /// @notice Maximum unlock time for profit distribution
     /// @return The profit max unlock time
     function profitMaxUnlockTime() external view returns (uint256);
+
+    /// @notice Minimum loose asset balance needed before tendTrigger returns true
+    /// @return The amount to tend threshold
+    function amountToTend() external view returns (uint256);
 
     /// @notice Timestamp of last report
     /// @return The last report timestamp
@@ -63,13 +75,16 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @return The shutdown status
     function isShutdown() external view returns (bool);
 
-    /// @notice Addresses authorized to perform keeper operations
-    /// @param keeper The address to check
-    /// @return Whether the address is a keeper
-    function keepers(address keeper) external view returns (bool);
+    /// @notice Address authorized to perform keeper operations
+    /// @return The keeper address
+    function keeper() external view returns (address);
 
     /// @notice Calculate total assets held (vault + loose)
     function totalAssets() external view returns (uint256);
+
+    /// @notice Loose strategy asset balance
+    /// @return Balance of the strategy asset held locally
+    function balanceOfAsset() external view returns (uint256);
 
     /// @notice Calculate value of assets deployed in vault
     function valueOfDeployedAssets() external view returns (uint256);
@@ -111,14 +126,21 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @return The amount actually withdrawn
     function pullFunds(uint256 _amount) external returns (uint256);
 
-    /// @notice Set keeper status for an address
-    /// @param _address Address to update
-    /// @param _allowed Whether address should have keeper privileges
-    function setKeeper(address _address, bool _allowed) external;
+    /// @notice Set the keeper address
+    /// @param _keeper New keeper address
+    function setKeeper(address _keeper) external;
 
     /// @notice Set the auction address
     /// @param _auction The new auction address
     function setAuction(address _auction) external;
+
+    /// @notice Set the minimum amount to sell in auction trigger checks
+    /// @param _token Token to configure
+    /// @param _minAmountToSell Minimum amount needed to execute a sale
+    function setMinAmountToSell(
+        address _token,
+        uint256 _minAmountToSell
+    ) external;
 
     /// @notice Set the profit max unlock time
     /// @param _profitMaxUnlockTime The new profit max unlock time
@@ -127,4 +149,8 @@ interface IBaseRemoteStrategy is IGovernance {
     /// @notice Set the shutdown status
     /// @param _isShutdown The new shutdown status
     function setIsShutdown(bool _isShutdown) external;
+
+    /// @notice Set the loose asset threshold needed to trigger tend
+    /// @param _amountToTend The new tend threshold
+    function setAmountToTend(uint256 _amountToTend) external;
 }

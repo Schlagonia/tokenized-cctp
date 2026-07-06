@@ -98,10 +98,7 @@ contract KatanaRemoteStrategy is BaseRemote4626, BaseLxLy {
         address _to,
         uint256 _amount
     ) external onlyGovernance {
-        require(
-            _token != address(asset) && _token != address(vault),
-            "InvalidToken"
-        );
+        require(!_isProtectedToken(_token), "InvalidToken");
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }

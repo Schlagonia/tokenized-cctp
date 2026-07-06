@@ -23,6 +23,9 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Tracks remote assets
     uint256 public remoteAssets;
 
+    /// @notice Timestamp watermark for remote asset updates
+    uint256 public lastRemoteAssetsReport;
+
     constructor(
         address _asset,
         string memory _name,
@@ -80,10 +83,23 @@ abstract contract BaseCrossChain is BaseHealthCheck {
 
     /// @notice Handles incoming cross-chain messages
     /// @param amount Total amount of assets the remote strategy has.
-    function _handleIncomingMessage(uint256 amount) internal virtual {
-        // NOTE: Its possible a remote report while funds are in flight would cause an invalid report to cause incorrect losses.
-        // We accept the amount either way since _harvestAndReport() will execute health check and make sure the message can
-        // not be executed in the future. The next report will fully override so we only need last report to be valid.
+    /// @param timestamp Timestamp when the remote strategy sent the report.
+    function _handleIncomingMessage(
+        uint256 amount,
+        uint256 timestamp
+    ) internal virtual {
+        if (timestamp <= lastRemoteAssetsReport) {
+            return;
+        }
+
+        // NOTE: Reports older than the current watermark are ignored. Since
+        // local deploys also update that watermark, a valid remote report can
+        // still be skipped if it was sent before a later deposit. For example,
+        // a withdrawal can trigger a lower remote asset report that arrives
+        // after a new deposit already increased remoteAssets locally. In that
+        // case accounting can remain incorrect until the next fresh remote
+        // report replaces the local estimate.
+        lastRemoteAssetsReport = timestamp;
         remoteAssets = amount;
         emit RemoteAssetsUpdated(amount);
     }
@@ -99,6 +115,10 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     /// @notice Deploy funds to remote chain
     function _deployFunds(uint256 _amount) internal virtual override {
         uint256 newRemoteAssets = remoteAssets + _bridgeAssets(_amount);
+        // Count deposits as remote assets immediately and advance the report
+        // watermark so a report sent before this deploy cannot later overwrite
+        // the locally-added amount before the remote side has received it.
+        lastRemoteAssetsReport = block.timestamp;
         remoteAssets = newRemoteAssets;
         emit RemoteAssetsUpdated(newRemoteAssets);
     }

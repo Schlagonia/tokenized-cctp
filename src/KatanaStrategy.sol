@@ -98,7 +98,7 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
     /// @dev Called by the bridge when a message is claimed
     /// @param originAddress The sender address on the origin network
     /// @param originNetwork The network ID where the message originated
-    /// @param data The message payload (encoded totalAssets)
+    /// @param data The message payload (encoded totalAssets and report timestamp)
     function onMessageReceived(
         address originAddress,
         uint32 originNetwork,
@@ -115,10 +115,13 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
         require(data.length > 0, "EmptyMessage");
 
         // Decode the total assets reported by remote strategy
-        uint256 amount = abi.decode(data, (uint256));
+        (uint256 amount, uint256 timestamp) = abi.decode(
+            data,
+            (uint256, uint256)
+        );
 
         // Update remote assets tracking
-        _handleIncomingMessage(amount);
+        _handleIncomingMessage(amount, timestamp);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -134,7 +137,10 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
         address _to,
         uint256 _amount
     ) external onlyManagement {
-        require(_token != address(asset), "InvalidToken");
+        require(
+            _token != address(asset) && _token != address(VB_TOKEN),
+            "InvalidToken"
+        );
         ERC20(_token).safeTransfer(_to, _amount);
     }
 }

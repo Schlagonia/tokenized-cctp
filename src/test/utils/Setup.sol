@@ -243,7 +243,7 @@ contract Setup is Test, IEvents {
         );
 
         vm.prank(governance);
-        _remoteStrategy.setKeeper(keeper, true);
+        _remoteStrategy.setKeeper(keeper);
     }
 
     function depositIntoStrategy(
@@ -333,6 +333,19 @@ contract Setup is Test, IEvents {
                 messageBody
             );
         }
+    }
+
+    function encodeRemoteAssetsReport(
+        uint256 totalAssets
+    ) public view returns (bytes memory) {
+        return encodeRemoteAssetsReportAt(totalAssets, block.timestamp);
+    }
+
+    function encodeRemoteAssetsReportAt(
+        uint256 totalAssets,
+        uint256 timestamp
+    ) public pure returns (bytes memory) {
+        return abi.encode(totalAssets, timestamp);
     }
 
     function calculateRemoteAssets(
