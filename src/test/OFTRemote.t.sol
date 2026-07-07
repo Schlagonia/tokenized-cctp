@@ -7,9 +7,9 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-import {OFTRemoteStrategy} from "../OFTRemoteStrategy.sol";
-import {OFTOptions} from "../libraries/OFTOptions.sol";
-import {IOFTRemoteStrategy} from "../interfaces/IOFTStrategy.sol";
+import {OFTRemoteStrategy} from "../oft/OFTRemoteStrategy.sol";
+import {OFTOptions} from "../oft/OFTOptions.sol";
+import {IOFTRemoteStrategy} from "../oft/IOFTStrategy.sol";
 
 /// @notice Robinhood-fork tests for the remote OFT strategy: exercises the
 ///         REAL spUSDG ERC4626 vault and checks whether a fresh OApp can send

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.18;
 
 import {OFTRemoteStrategy as RemoteStrategy} from "./OFTRemoteStrategy.sol";
-import {CREATE3} from "./libraries/CREATE3.sol";
-import {OFTOptions} from "./libraries/OFTOptions.sol";
+import {CREATE3} from "../libraries/CREATE3.sol";
+import {OFTOptions} from "./OFTOptions.sol";
 import {Governance} from "@periphery/utils/Governance.sol";
 
 /// @title OFTRemoteStrategyFactory

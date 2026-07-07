@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.18;
 
-import {IBaseCrossChain} from "./IBaseCrossChain.sol";
-import {IBaseRemoteStrategy} from "./IBaseRemoteStrategy.sol";
+import {IBaseCrossChain} from "../interfaces/IBaseCrossChain.sol";
+import {IBaseRemoteStrategy} from "../interfaces/IBaseRemoteStrategy.sol";
 
 /// @notice Shared surface of the OFT bridge base (BaseOFT).
 interface IBaseOFT {

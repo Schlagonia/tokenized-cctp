@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import {OFTStrategy as Strategy} from "./OFTStrategy.sol";
-import {CREATE} from "./libraries/CREATE.sol";
+import {CREATE} from "../libraries/CREATE.sol";
 
 interface IOFTRemoteFactory {
     function computeCreateAddress(
