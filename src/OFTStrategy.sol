@@ -9,11 +9,12 @@ import {BaseOFT} from "./bases/BaseOFT.sol";
 
 /// @title OFTStrategy
 /// @notice Origin strategy that bridges its asset to a remote chain via a
-///         LayerZero OFT and tracks the remote deployment through OApp report
-///         messages (e.g. USDG to Robinhood).
-/// @dev Assets are bridged on deposit via the OFT; the remote reports its
-///      totalAssets back over LayerZero, delivered to `lzReceive`. The
-///      strategy must hold an ETH reserve to pay LayerZero native fees.
+///         LayerZero OFT and tracks the remote deployment through report
+///         messages carried over the SAME OFT bridge (e.g. USDG to Robinhood).
+/// @dev Assets are bridged on deposit via the OFT; the remote attaches its
+///      totalAssets report to an OFT transfer (a compose message), delivered
+///      here in `lzCompose`. The strategy must hold an ETH reserve to pay
+///      LayerZero native fees.
 contract OFTStrategy is BaseCrossChain, BaseOFT {
     using SafeERC20 for ERC20;
 
@@ -45,22 +46,22 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
                     BASECROSSCHAIN IMPLEMENTATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Bridge assets to the remote chain via the OFT.
+    /// @notice Bridge assets to the remote chain via the OFT (no report).
     function _bridgeAssets(
         uint256 _amount
     ) internal override returns (uint256) {
-        return _oftSend(_amount);
+        return _oftSend(_amount, "");
     }
 
     /*//////////////////////////////////////////////////////////////
-                        LAYERZERO OApp
+                        LAYERZERO COMPOSE
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Decode and apply a remote report (totalAssets, timestamp).
-    function _handleLzMessage(bytes calldata _message) internal override {
-        require(_message.length > 0, "EmptyMessage");
+    function _handleComposeMessage(bytes calldata _payload) internal override {
+        require(_payload.length > 0, "EmptyMessage");
         (uint256 amount, uint256 timestamp) = abi.decode(
-            _message,
+            _payload,
             (uint256, uint256)
         );
         _handleIncomingMessage(amount, timestamp);

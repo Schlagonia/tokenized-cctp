@@ -9,10 +9,11 @@ import {BaseOFT} from "./bases/BaseOFT.sol";
 
 /// @title OFTRemoteStrategy
 /// @notice Remote strategy that receives its asset via a LayerZero OFT,
-///         deploys it into an ERC4626 vault, and reports totalAssets home
-///         over LayerZero (e.g. USDG on Robinhood).
-/// @dev Bridges assets home via the OFT and sends reports via the endpoint.
-///      Must hold an ETH reserve to pay LayerZero native fees.
+///         deploys it into an ERC4626 vault, and reports totalAssets home over
+///         the SAME OFT bridge (e.g. USDG on Robinhood).
+/// @dev Bridges assets home via the OFT; reports ride the OFT as compose
+///      messages — attached to a real transfer, or as a 0-amount send for a
+///      standalone report. Must hold an ETH reserve for LayerZero fees.
 contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
     using SafeERC20 for ERC20;
 
@@ -42,28 +43,28 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
                 BASEREMOTESTRATEGY IMPLEMENTATIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Bridge assets back to the origin chain via the OFT.
+    /// @notice Bridge assets back to the origin chain via the OFT (no report).
     function _bridgeAssets(
         uint256 _amount
     ) internal override returns (uint256) {
-        return _oftSend(_amount);
+        return _oftSend(_amount, "");
     }
 
-    /// @notice Send a report message to the origin chain via LayerZero.
+    /// @notice Send a standalone report home as a 0-amount OFT compose.
     function _bridgeMessage(bytes memory data) internal override {
-        _lzSend(data);
+        _oftSend(0, data);
     }
 
     /*//////////////////////////////////////////////////////////////
-                        LAYERZERO OApp
+                        LAYERZERO COMPOSE
     //////////////////////////////////////////////////////////////*/
 
     function _peer() internal view override returns (bytes32) {
         return _addressToBytes32(REMOTE_COUNTERPART);
     }
 
-    /// @dev Remote is send-only for messages; it never ingests reports.
-    function _handleLzMessage(bytes calldata) internal pure override {
+    /// @dev Remote is send-only; it never ingests reports.
+    function _handleComposeMessage(bytes calldata) internal pure override {
         revert("NotSupported");
     }
 

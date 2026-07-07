@@ -102,9 +102,10 @@ contract DeployOFTStrategy is Script {
 
         console.log("Remote (Robinhood):", address(remote));
         console.log("");
-        console.log("Post-deploy (LayerZero OApp wiring, via delegates):");
-        console.log("  - both sides: configure send/receive libraries + DVNs");
-        console.log("  - both sides: set enforced options, or setLzOptions");
+        console.log("Post-deploy:");
+        console.log("  - reports ride the USDG OFT (compose) - no DVN wiring");
+        console.log("  - remote.setLzOptions(<lzReceive + lzCompose option>)");
+        console.log("    built with LayerZero OptionsBuilder (compose gas)");
         console.log("  - origin: acceptManagement, setAllowed depositor");
         console.log("  - fund both sides with ETH for LayerZero fees");
     }

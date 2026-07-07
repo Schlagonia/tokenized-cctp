@@ -146,39 +146,43 @@ contract OFTRemoteTest is Test {
         assertApproxEqRel(remote.balanceOfAsset(), 40_000e6, 0.001e18);
     }
 
-    /// @notice A freshly-deployed OApp cannot send a report until its
-    ///         LayerZero send library / DVNs / enforced options are wired by
-    ///         the delegate. Documents that deploy-time requirement.
-    function test_report_needsLzWiring() public {
+    /// @notice A report rides the REAL, already-configured USDG OFT as a
+    ///         0-amount compose send — no separate LayerZero wiring needed.
+    function test_report_viaOft() public {
         uint256 amount = 50_000e6;
         _dealUSDG(address(remote), amount);
 
+        vm.prank(keeper);
+        remote.pushFunds(amount); // deploy into the vault first
+
+        uint256 ethBefore = address(remote).balance;
+
         skip(1);
         vm.prank(keeper);
-        vm.expectRevert(); // LZ send library not configured on the fork
-        remote.report();
+        (uint256 ta, ) = remote.report();
+
+        // Reports the vault value; no USDG moved (0-amount send)
+        assertApproxEqRel(ta, amount, 0.001e18, "!reported");
+        assertEq(remote.balanceOfAsset(), 0, "!noTokenMoved");
+        // A small LayerZero fee was paid from the reserve
+        assertLt(address(remote).balance, ethBefore, "!fee");
     }
 
-    /// @notice Setting a standard executor option does not by itself enable
-    ///         the send — DVN/library config is still required. Informational.
-    function test_report_withOptions() public {
-        // type-3 options: executor lzReceive, 200k gas
-        bytes
-            memory options = hex"00030100110100000000000000000000000000030d40";
-        vm.prank(governance);
-        remote.setLzOptions(options);
-
-        uint256 amount = 50_000e6;
+    /// @notice Full remote withdraw: redeem from the REAL vault, bridge USDG
+    ///         home via the OFT, and report — all over the real USDG bridge.
+    function test_processWithdrawal_viaOft() public {
+        uint256 amount = 100_000e6;
         _dealUSDG(address(remote), amount);
-        skip(1);
 
         vm.prank(keeper);
-        try remote.report() returns (uint256 ta, uint256) {
-            assertApproxEqRel(ta, amount, 0.001e18);
-            console2.log("report() OK with options");
-        } catch {
-            console2.log("report() still needs DVN/library wiring");
-        }
+        remote.pushFunds(amount);
+
+        skip(1);
+        vm.prank(keeper);
+        remote.processWithdrawal(40_000e6);
+
+        // Redeemed from the vault and bridged home (burned by the adapter)
+        assertLe(remote.balanceOfAsset(), 1e6, "!bridgedHome");
     }
 
     function test_report_onlyKeepers() public {

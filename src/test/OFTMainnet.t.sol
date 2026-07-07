@@ -9,7 +9,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {OFTStrategy} from "../OFTStrategy.sol";
 import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
-import {Origin} from "../interfaces/layerzero/ILayerZeroEndpointV2.sol";
 
 interface IOFTStrategy is IStrategyInterface {
     function OFT() external view returns (address);
@@ -18,8 +17,8 @@ interface IOFTStrategy is IStrategyInterface {
 
     function REMOTE_EID() external view returns (uint32);
 
-    function lzReceive(
-        Origin calldata _origin,
+    function lzCompose(
+        address _from,
         bytes32 _guid,
         bytes calldata _message,
         address _executor,
@@ -162,64 +161,88 @@ contract OFTMainnetTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        REPORT RECEIVE (OApp)
+                        REPORT RECEIVE (COMPOSE)
     //////////////////////////////////////////////////////////////*/
 
-    function test_lzReceive_updatesRemoteAssets() public {
+    /// @dev Build the OFT compose message the endpoint delivers to lzCompose:
+    ///      nonce(8) | srcEid(4) | amountLD(32) | composeFrom(32) | payload.
+    function _composeMsg(
+        uint32 _srcEid,
+        address _composeFrom,
+        bytes memory _payload
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                uint64(1),
+                _srcEid,
+                uint256(0),
+                bytes32(uint256(uint160(_composeFrom))),
+                _payload
+            );
+    }
+
+    function test_lzCompose_updatesRemoteAssets() public {
         _deposit(10_000e6);
 
         // Remote reports a profit
         uint256 reported = 10_100e6;
-        bytes memory message = abi.encode(reported, block.timestamp + 1);
-
-        Origin memory origin = Origin({
-            srcEid: ROBINHOOD_EID,
-            sender: bytes32(uint256(uint160(remoteCounterpart))),
-            nonce: 1
-        });
+        bytes memory message = _composeMsg(
+            ROBINHOOD_EID,
+            remoteCounterpart,
+            abi.encode(reported, block.timestamp + 1)
+        );
 
         vm.prank(LZ_ENDPOINT);
-        strategy.lzReceive(origin, bytes32(0), message, address(0), "");
+        strategy.lzCompose(USDG_OFT, bytes32(0), message, address(0), "");
 
         assertEq(strategy.remoteAssets(), reported);
     }
 
-    function test_lzReceive_onlyEndpoint() public {
-        bytes memory message = abi.encode(uint256(1e6), block.timestamp + 1);
-        Origin memory origin = Origin({
-            srcEid: ROBINHOOD_EID,
-            sender: bytes32(uint256(uint160(remoteCounterpart))),
-            nonce: 1
-        });
+    function test_lzCompose_onlyEndpoint() public {
+        bytes memory message = _composeMsg(
+            ROBINHOOD_EID,
+            remoteCounterpart,
+            abi.encode(uint256(1e6), block.timestamp + 1)
+        );
 
         vm.expectRevert(bytes("!endpoint"));
-        strategy.lzReceive(origin, bytes32(0), message, address(0), "");
+        strategy.lzCompose(USDG_OFT, bytes32(0), message, address(0), "");
     }
 
-    function test_lzReceive_wrongSrcEid() public {
-        bytes memory message = abi.encode(uint256(1e6), block.timestamp + 1);
-        Origin memory origin = Origin({
-            srcEid: 30111, // wrong
-            sender: bytes32(uint256(uint160(remoteCounterpart))),
-            nonce: 1
-        });
+    function test_lzCompose_wrongOft() public {
+        bytes memory message = _composeMsg(
+            ROBINHOOD_EID,
+            remoteCounterpart,
+            abi.encode(uint256(1e6), block.timestamp + 1)
+        );
+
+        vm.prank(LZ_ENDPOINT);
+        vm.expectRevert(bytes("!oft"));
+        strategy.lzCompose(address(0xBAD), bytes32(0), message, address(0), "");
+    }
+
+    function test_lzCompose_wrongSrcEid() public {
+        bytes memory message = _composeMsg(
+            30111, // wrong
+            remoteCounterpart,
+            abi.encode(uint256(1e6), block.timestamp + 1)
+        );
 
         vm.prank(LZ_ENDPOINT);
         vm.expectRevert(bytes("!srcEid"));
-        strategy.lzReceive(origin, bytes32(0), message, address(0), "");
+        strategy.lzCompose(USDG_OFT, bytes32(0), message, address(0), "");
     }
 
-    function test_lzReceive_wrongSender() public {
-        bytes memory message = abi.encode(uint256(1e6), block.timestamp + 1);
-        Origin memory origin = Origin({
-            srcEid: ROBINHOOD_EID,
-            sender: bytes32(uint256(uint160(user))), // wrong
-            nonce: 1
-        });
+    function test_lzCompose_wrongSender() public {
+        bytes memory message = _composeMsg(
+            ROBINHOOD_EID,
+            user, // wrong composeFrom
+            abi.encode(uint256(1e6), block.timestamp + 1)
+        );
 
         vm.prank(LZ_ENDPOINT);
         vm.expectRevert(bytes("!sender"));
-        strategy.lzReceive(origin, bytes32(0), message, address(0), "");
+        strategy.lzCompose(USDG_OFT, bytes32(0), message, address(0), "");
     }
 
     /*//////////////////////////////////////////////////////////////

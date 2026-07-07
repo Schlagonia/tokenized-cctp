@@ -9,11 +9,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OFTStrategy} from "../OFTStrategy.sol";
 import {OFTRemoteStrategy} from "../OFTRemoteStrategy.sol";
 import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
-import {Origin} from "../interfaces/layerzero/ILayerZeroEndpointV2.sol";
 
 interface IOrigin is IStrategyInterface {
-    function lzReceive(
-        Origin calldata,
+    function OFT() external view returns (address);
+
+    function lzCompose(
+        address,
         bytes32,
         bytes calldata,
         address,
@@ -156,20 +157,25 @@ contract OFTTest is Test {
         _dealUSDG(USDG, address(origin), bal + _amount);
     }
 
-    /// @dev Simulate a report arriving at the origin from the remote.
+    /// @dev Simulate a report compose arriving at the origin from the remote,
+    ///      delivered by the endpoint after the USDG OFT credits the origin.
     function _reportHome(uint256 _totalAssets) internal {
         vm.selectFork(ethFork);
-        Origin memory o = Origin({
-            srcEid: ROBINHOOD_EID,
-            sender: bytes32(uint256(uint160(address(remote)))),
-            nonce: 1
-        });
-        bytes memory message = abi.encode(
+        bytes memory payload = abi.encode(
             _totalAssets,
             origin.lastRemoteAssetsReport() + 1
         );
+        // OFT compose framing: nonce(8)|srcEid(4)|amountLD(32)|from(32)|payload
+        bytes memory message = abi.encodePacked(
+            uint64(1),
+            ROBINHOOD_EID,
+            uint256(0),
+            bytes32(uint256(uint160(address(remote)))),
+            payload
+        );
+        address oft = origin.OFT();
         vm.prank(ETH_ENDPOINT);
-        origin.lzReceive(o, bytes32(0), message, address(0), "");
+        origin.lzCompose(oft, bytes32(0), message, address(0), "");
     }
 
     function _deposit(uint256 _amount) internal {
