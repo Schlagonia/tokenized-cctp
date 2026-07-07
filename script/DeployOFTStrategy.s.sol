@@ -57,9 +57,6 @@ contract DeployOFTStrategy is Script {
         vm.broadcast();
         OFTRemoteStrategyFactory remoteFactory = new OFTRemoteStrategyFactory(
             GOVERNANCE,
-            ROBINHOOD_USDG,
-            ROBINHOOD_USDG_OFT,
-            ROBINHOOD_ENDPOINT,
             80_000,
             100_000
         );
@@ -74,14 +71,14 @@ contract DeployOFTStrategy is Script {
             PERF_RECIPIENT,
             KEEPER,
             MANAGEMENT,
-            address(remoteFactory),
-            USDG,
-            USDG_OFT,
-            ETH_ENDPOINT,
-            ETHEREUM_EID
+            address(remoteFactory)
         );
         address origin = originFactory.newStrategy(
             STRATEGY_NAME,
+            USDG,
+            USDG_OFT,
+            ETH_ENDPOINT,
+            ETHEREUM_EID,
             ROBINHOOD_EID,
             ROBINHOOD_CHAIN_ID,
             ROBINHOOD_VAULT,
@@ -94,6 +91,9 @@ contract DeployOFTStrategy is Script {
         vm.createSelectFork(vm.envString("HOOD_RPC_URL"));
         vm.broadcast();
         address remote = remoteFactory.deployRemoteStrategy(
+            ROBINHOOD_USDG,
+            ROBINHOOD_USDG_OFT,
+            ROBINHOOD_ENDPOINT,
             ROBINHOOD_VAULT,
             ETHEREUM_EID,
             origin
@@ -103,6 +103,7 @@ contract DeployOFTStrategy is Script {
             remote ==
                 originFactory.computeRemoteCreateAddress(
                     ROBINHOOD_VAULT,
+                    ETHEREUM_EID,
                     origin
                 ),
             "Remote address mismatch"

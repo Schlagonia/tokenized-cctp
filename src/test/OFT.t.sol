@@ -50,13 +50,10 @@ contract OFTTest is Test {
         ethFork = vm.createFork(vm.envString("ETH_RPC_URL"));
         hoodFork = vm.createFork(vm.envString("HOOD_RPC_URL"));
 
-        // Remote factory on Robinhood.
+        // Remote factory on Robinhood (generic: token/OFT/endpoint per call).
         vm.selectFork(hoodFork);
         OFTRemoteStrategyFactory remoteFactory = new OFTRemoteStrategyFactory(
             governance,
-            RUSDG,
-            RUSDG_OFT,
-            HOOD_ENDPOINT,
             80_000,
             100_000
         );
@@ -73,15 +70,15 @@ contract OFTTest is Test {
             address(3),
             keeper,
             management,
-            rf,
-            USDG,
-            USDG_OFT,
-            ETH_ENDPOINT,
-            ETHEREUM_EID
+            rf
         );
         origin = IOFTStrategy(
             originFactory.newStrategy(
                 "USDG Robinhood OFT Strategy",
+                USDG,
+                USDG_OFT,
+                ETH_ENDPOINT,
+                ETHEREUM_EID,
                 ROBINHOOD_EID,
                 4663,
                 VAULT,
@@ -98,6 +95,9 @@ contract OFTTest is Test {
         vm.selectFork(hoodFork);
         remote = IOFTRemoteStrategy(
             remoteFactory.deployRemoteStrategy(
+                RUSDG,
+                RUSDG_OFT,
+                HOOD_ENDPOINT,
                 VAULT,
                 ETHEREUM_EID,
                 address(origin)
