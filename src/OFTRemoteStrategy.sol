@@ -25,7 +25,7 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
         uint32 _originEid,
         address _originCounterpart,
         address _vault,
-        address _delegate
+        bytes memory _lzOptions
     )
         BaseRemote4626(
             _asset,
@@ -34,7 +34,7 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
             _originCounterpart,
             _vault
         )
-        BaseOFT(_oft, _endpoint, _originEid, _delegate)
+        BaseOFT(_oft, _endpoint, _originEid, _lzOptions)
     {
         require(OFT.token() == _asset, "OftMismatch");
     }
@@ -71,16 +71,6 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
     /*//////////////////////////////////////////////////////////////
                             GOVERNANCE
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Set the LayerZero endpoint delegate (DVN/library config).
-    function setDelegate(address _delegate) external onlyGovernance {
-        ENDPOINT.setDelegate(_delegate);
-    }
-
-    /// @notice Set executor options for report messages.
-    function setLzOptions(bytes calldata _options) external onlyGovernance {
-        _setLzOptions(_options);
-    }
 
     /// @notice Rescue ETH held for LayerZero fees.
     function rescueETH(address _to, uint256 _amount) external onlyGovernance {

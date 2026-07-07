@@ -27,7 +27,7 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
         uint256 _remoteChainId,
         address _remoteCounterpart,
         address _depositer,
-        address _delegate
+        bytes memory _lzOptions
     )
         BaseCrossChain(
             _asset,
@@ -37,7 +37,7 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
             _remoteCounterpart,
             _depositer
         )
-        BaseOFT(_oft, _endpoint, _remoteEid, _delegate)
+        BaseOFT(_oft, _endpoint, _remoteEid, _lzOptions)
     {
         require(OFT.token() == _asset, "OftMismatch");
     }
@@ -74,16 +74,6 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
     /*//////////////////////////////////////////////////////////////
                             MANAGEMENT
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice Set the LayerZero endpoint delegate (DVN/library config).
-    function setDelegate(address _delegate) external onlyManagement {
-        ENDPOINT.setDelegate(_delegate);
-    }
-
-    /// @notice Set executor options for report messages.
-    function setLzOptions(bytes calldata _options) external onlyManagement {
-        _setLzOptions(_options);
-    }
 
     /// @notice Rescue ETH held for LayerZero fees.
     function rescueETH(address _to, uint256 _amount) external onlyManagement {

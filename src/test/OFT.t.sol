@@ -6,12 +6,14 @@ import {Test} from "forge-std/Test.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {OFTStrategy} from "../OFTStrategy.sol";
-import {OFTRemoteStrategy} from "../OFTRemoteStrategy.sol";
+import {OFTStrategyFactory} from "../OFTStrategyFactory.sol";
+import {OFTOptions} from "../libraries/OFTOptions.sol";
 import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
 
 interface IOrigin is IStrategyInterface {
     function OFT() external view returns (address);
+
+    function lzOptions() external view returns (bytes memory);
 
     function lzCompose(
         address,
@@ -30,6 +32,10 @@ interface IRemote {
     function pullFunds(uint256) external returns (uint256);
 
     function setKeeper(address) external;
+
+    function keeper() external view returns (address);
+
+    function lzOptions() external view returns (bytes memory);
 
     function totalAssets() external view returns (uint256);
 
@@ -75,50 +81,52 @@ contract OFTTest is Test {
         ethFork = vm.createFork(vm.envString("ETH_RPC_URL"));
         hoodFork = vm.createFork(vm.envString("HOOD_RPC_URL"));
 
-        // Remote on Robinhood (origin counterpart set after origin deploy is
-        // not needed: the remote is send-only and transport is simulated).
+        // Remote on Robinhood, deployed via the factory (which computes and
+        // sets the compose options).
         vm.selectFork(hoodFork);
+        OFTStrategyFactory remoteFactory = new OFTStrategyFactory(
+            management,
+            address(3),
+            keeper,
+            management
+        );
         remote = IRemote(
-            address(
-                new OFTRemoteStrategy(
-                    RUSDG,
-                    governance,
-                    RUSDG_OFT,
-                    HOOD_ENDPOINT,
-                    ETHEREUM_EID,
-                    address(0xDEAD),
-                    VAULT,
-                    governance
-                )
+            remoteFactory.newRemote(
+                RUSDG,
+                governance,
+                RUSDG_OFT,
+                HOOD_ENDPOINT,
+                ETHEREUM_EID,
+                address(0xDEAD),
+                VAULT
             )
         );
         vm.prank(governance);
         remote.setKeeper(keeper);
         vm.deal(address(remote), 10 ether);
 
-        // Origin on Ethereum, pointed at the real remote address.
+        // Origin on Ethereum, deployed via the factory, pointed at the remote.
         vm.selectFork(ethFork);
+        OFTStrategyFactory originFactory = new OFTStrategyFactory(
+            management,
+            address(3),
+            keeper,
+            management
+        );
         origin = IOrigin(
-            address(
-                new OFTStrategy(
-                    USDG,
-                    "USDG Robinhood OFT Strategy",
-                    USDG_OFT,
-                    ETH_ENDPOINT,
-                    ROBINHOOD_EID,
-                    4663,
-                    address(remote),
-                    depositor,
-                    management
-                )
+            originFactory.newOrigin(
+                USDG,
+                "USDG Robinhood OFT Strategy",
+                USDG_OFT,
+                ETH_ENDPOINT,
+                ROBINHOOD_EID,
+                4663,
+                address(remote),
+                depositor
             )
         );
-        address cm = origin.management();
-        vm.prank(cm);
-        origin.setPendingManagement(management);
         vm.startPrank(management);
         origin.acceptManagement();
-        origin.setKeeper(keeper);
         // Tolerate small ERC4626 rounding on the remote vault
         origin.setLossLimitRatio(100);
         vm.stopPrank();
@@ -247,5 +255,20 @@ contract OFTTest is Test {
         vm.selectFork(ethFork);
         assertEq(origin.availableDepositLimit(depositor), type(uint256).max);
         assertEq(origin.availableDepositLimit(address(10)), 0);
+    }
+
+    /// @notice The factory computes and sets lzOptions at construction: the
+    ///         remote carries compose options; the origin rides the OFT's
+    ///         enforced options (empty).
+    function test_factory_wiredOptions() public {
+        vm.selectFork(ethFork);
+        assertEq(origin.lzOptions(), "");
+
+        vm.selectFork(hoodFork);
+        assertEq(
+            remote.lzOptions(),
+            OFTOptions.composeOptions(80_000, 100_000)
+        );
+        assertEq(remote.keeper(), keeper);
     }
 }

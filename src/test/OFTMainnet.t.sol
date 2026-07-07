@@ -65,10 +65,10 @@ contract OFTMainnetTest is Test {
                     USDG_OFT,
                     LZ_ENDPOINT,
                     ROBINHOOD_EID,
-                    747474747, // remote chain id placeholder
+                    4663, // Robinhood chain id
                     remoteCounterpart,
                     depositor,
-                    management // delegate
+                    "" // origin token sends ride the OFT enforced options
                 )
             )
         );

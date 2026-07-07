@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {MessagingFee, MessagingReceipt} from "./ILayerZeroEndpointV2.sol";
-
 /// @dev Token parameters for an OFT send() operation.
 struct SendParam {
     uint32 dstEid; // Destination endpoint ID.
@@ -12,6 +10,19 @@ struct SendParam {
     bytes extraOptions; // Additional options.
     bytes composeMsg; // The composed message.
     bytes oftCmd; // The OFT command (unused in default OFTs).
+}
+
+/// @dev The fee quoted/charged for a LayerZero message.
+struct MessagingFee {
+    uint256 nativeFee;
+    uint256 lzTokenFee;
+}
+
+/// @dev Receipt returned by a LayerZero send().
+struct MessagingReceipt {
+    bytes32 guid;
+    uint64 nonce;
+    MessagingFee fee;
 }
 
 /// @dev Receipt of an OFT send() operation.

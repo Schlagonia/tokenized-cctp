@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {OFTRemoteStrategy} from "../OFTRemoteStrategy.sol";
+import {OFTOptions} from "../libraries/OFTOptions.sol";
 
 interface IOFTRemote {
     function report() external returns (uint256, uint256);
@@ -19,8 +20,6 @@ interface IOFTRemote {
     function pullFunds(uint256 _amount) external returns (uint256);
 
     function setKeeper(address _keeper) external;
-
-    function setLzOptions(bytes calldata _options) external;
 
     function keeper() external view returns (address);
 
@@ -73,7 +72,7 @@ contract OFTRemoteTest is Test {
                     ETHEREUM_EID,
                     originCounterpart,
                     VAULT,
-                    governance // delegate
+                    OFTOptions.composeOptions(80_000, 100_000)
                 )
             )
         );
