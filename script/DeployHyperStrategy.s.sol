@@ -38,27 +38,27 @@ contract DeployHyperStrategy is Script {
         console.log("HyperEVM nonce:", hyperNonce);
         console.log("Predicted remote address:", predictedRemote);
 
-        /** 
-        // Step 2: Deploy origin strategy on Ethereum
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
-        vm.startBroadcast();
-
-        CCTPStrategy originStrategy = new CCTPStrategy(
-            CCTPHelpers.ETHEREUM_USDC,
-            STRATEGY_NAME,
-            TOKEN_MESSENGER,
-            MESSAGE_TRANSMITTER,
-            CCTPHelpers.HYPEREVM_DOMAIN,
-            999,
-            predictedRemote,
-            DEPOSITER
-        );
-
-        vm.stopBroadcast();
-
-        console.log("=== ETHEREUM ===");
-        console.log("Origin Strategy:", address(originStrategy));
-        */
+        /**
+         * // Step 2: Deploy origin strategy on Ethereum
+         * vm.createSelectFork(vm.envString("ETH_RPC_URL"));
+         * vm.startBroadcast();
+         *
+         * CCTPStrategy originStrategy = new CCTPStrategy(
+         *     CCTPHelpers.ETHEREUM_USDC,
+         *     STRATEGY_NAME,
+         *     TOKEN_MESSENGER,
+         *     MESSAGE_TRANSMITTER,
+         *     CCTPHelpers.HYPEREVM_DOMAIN,
+         *     999,
+         *     predictedRemote,
+         *     DEPOSITER
+         * );
+         *
+         * vm.stopBroadcast();
+         *
+         * console.log("=== ETHEREUM ===");
+         * console.log("Origin Strategy:", address(originStrategy));
+         */
         CCTPStrategy originStrategy = CCTPStrategy(0x6447B88C071b98900c40da7C7957537c977EF295);
 
         // Step 3: Deploy remote strategy on HyperEVM
@@ -66,11 +66,7 @@ contract DeployHyperStrategy is Script {
         vm.startBroadcast();
 
         HyperRemoteStrategy remoteStrategy = new HyperRemoteStrategy(
-            CCTPHelpers.HYPEREVM_USDC,
-            GOVERNANCE,
-            TOKEN_MESSENGER,
-            MESSAGE_TRANSMITTER,
-            address(originStrategy)
+            CCTPHelpers.HYPEREVM_USDC, GOVERNANCE, TOKEN_MESSENGER, MESSAGE_TRANSMITTER, address(originStrategy)
         );
 
         vm.stopBroadcast();
@@ -79,15 +75,11 @@ contract DeployHyperStrategy is Script {
         console.log("Remote Strategy:", address(remoteStrategy));
 
         // Verify address prediction was correct
-        require(
-            address(remoteStrategy) == predictedRemote,
-            "Remote address mismatch! Nonce changed between forks."
-        );
+        require(address(remoteStrategy) == predictedRemote, "Remote address mismatch! Nonce changed between forks.");
 
         console.log("");
         console.log("=== DEPLOYMENT COMPLETE ===");
         console.log("Origin (Ethereum):", address(originStrategy));
         console.log("Remote (HyperEVM):", address(remoteStrategy));
     }
-
 }

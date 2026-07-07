@@ -31,7 +31,7 @@ library CREATE3 {
     // 0xf3       |  0xf3                 | RETURN           |                        //
     //--------------------------------------------------------------------------------//
     bytes internal constant PROXY_BYTECODE =
-        hex"67_36_3d_3d_37_36_3d_34_f0_3d_52_60_08_60_18_f3";
+        hex"67363d3d37363d34f03d5260086018f3";
 
     bytes32 internal constant PROXY_BYTECODE_HASH = keccak256(PROXY_BYTECODE);
 
@@ -82,7 +82,7 @@ library CREATE3 {
                 abi.encodePacked(
                     // 0xd6 = 0xc0 (short RLP prefix) + 0x16 (length of: 0x94 ++ proxy ++ 0x01)
                     // 0x94 = 0x80 + 0x14 (0x14 = the length of an address, 20 bytes, in hex)
-                    hex"d6_94",
+                    hex"d694",
                     proxy,
                     hex"01" // Nonce of the proxy contract (1)
                 )

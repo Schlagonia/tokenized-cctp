@@ -8,9 +8,6 @@ import {BaseHealthCheck} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol"
 abstract contract BaseCrossChain is BaseHealthCheck {
     event RemoteAssetsUpdated(uint256 indexed amount);
 
-    /// @notice Address allowed to deposit into this strategy
-    address public immutable DEPOSITER;
-
     /// @notice Remote chain identifier specific to bridge implementation.
     bytes32 public immutable REMOTE_ID;
 
@@ -31,17 +28,17 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         string memory _name,
         bytes32 _remoteId,
         uint256 _remoteChainId,
-        address _remoteCounterpart,
-        address _depositer
+        address _remoteCounterpart
     ) BaseHealthCheck(_asset, _name) {
         require(_remoteCounterpart != address(0), "ZeroAddress");
-        require(_depositer != address(0), "ZeroAddress");
         // Note: _remoteId can be 0 for some chains (e.g., Ethereum domain = 0)
 
         REMOTE_ID = _remoteId;
         REMOTE_CHAIN_ID = _remoteChainId;
         REMOTE_COUNTERPART = _remoteCounterpart;
-        DEPOSITER = _depositer;
+
+        // Deposits are gated by the BaseHealthCheck `allowed` whitelist.
+        // `open` defaults to false so management must whitelist depositors.
 
         _setProfitLimitRatio(1_000); // 10%
     }
@@ -71,14 +68,6 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         address /* _owner */
     ) public view virtual override returns (uint256) {
         return balanceOfAsset();
-    }
-
-    /// @notice Restrict deposits to specific depositer address
-    /// @dev Override to change deposit access control
-    function availableDepositLimit(
-        address _owner
-    ) public view virtual override returns (uint256) {
-        return _owner == DEPOSITER ? type(uint256).max : 0;
     }
 
     /// @notice Handles incoming cross-chain messages

@@ -80,8 +80,7 @@ contract StrategyFactory is BaseCCTP {
                     address(MESSAGE_TRANSMITTER),
                     _remoteDomain,
                     _remoteChainId,
-                    _remoteCounterpart,
-                    _depositer
+                    _remoteCounterpart
                 )
             )
         );
@@ -90,6 +89,9 @@ contract StrategyFactory is BaseCCTP {
             address(_newStrategy) == predictedStrategyAddress,
             "Predicted strategy address does not match"
         );
+
+        // Deposits are closed by default; whitelist the depositer.
+        _newStrategy.setAllowed(_depositer, true);
 
         _newStrategy.setPerformanceFee(0);
 

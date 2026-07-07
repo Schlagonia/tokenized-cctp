@@ -9,9 +9,7 @@ import {ICreateX} from "../src/interfaces/ICreateX.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract DeployFactories is Script {
-
-    ICreateX public immutable createX =
-        ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
+    ICreateX public immutable createX = ICreateX(0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed);
 
     address public constant deployer = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
 
@@ -22,13 +20,12 @@ contract DeployFactories is Script {
         address keeper = 0x604e586F17cE106B64185A7a0d2c1Da5bAce711E;
         address emergencyAdmin = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
         address governance = deployer;
-        
+
         bytes32 salt = bytes32(abi.encodePacked("remote cctp factory v2"));
 
         console.log("\n=================================");
         console.log("Deploying Factories");
         console.log("=================================\n");
-        
 
         // Deploy StrategyFactory on Ethereum mainnet
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
@@ -37,17 +34,11 @@ contract DeployFactories is Script {
         bytes memory creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
-                management,
-                CCTPHelpers.ETHEREUM_USDC,
-                CCTPHelpers.TOKEN_MESSENGER,
-                CCTPHelpers.MESSAGE_TRANSMITTER
+                management, CCTPHelpers.ETHEREUM_USDC, CCTPHelpers.TOKEN_MESSENGER, CCTPHelpers.MESSAGE_TRANSMITTER
             )
         );
 
-        address _remoteFactory = ICreateX(createX).deployCreate3(
-            salt,
-            creationCode
-        );
+        address _remoteFactory = ICreateX(createX).deployCreate3(salt, creationCode);
 
         console.log("[COMPUTED] Ethereum RemoteStrategyFactory:", address(_remoteFactory));
 
@@ -66,55 +57,46 @@ contract DeployFactories is Script {
 
         console.log("[DEPLOYED] Ethereum StrategyFactory:", address(strategyFactory));
 
-        
         // Deploy RemoteStrategyFactory on Base
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
         vm.startBroadcast();
 
         creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
-            abi.encode(
-                governance,
-                CCTPHelpers.BASE_USDC,
-                CCTPHelpers.TOKEN_MESSENGER,
-                CCTPHelpers.MESSAGE_TRANSMITTER
-            )
+            abi.encode(governance, CCTPHelpers.BASE_USDC, CCTPHelpers.TOKEN_MESSENGER, CCTPHelpers.MESSAGE_TRANSMITTER)
         );
 
-        address baseFactory = ICreateX(createX).deployCreate3(
-            salt,
-            creationCode
-        );
+        address baseFactory = ICreateX(createX).deployCreate3(salt, creationCode);
 
         vm.stopBroadcast();
 
         console.log("[DEPLOYED] Base RemoteStrategyFactory:", address(baseFactory));
 
-        
         /**
-        // Deploy RemoteStrategyFactory on Polygon
-        vm.createSelectFork(vm.envString("POLYGON_RPC_URL"));
-        vm.startBroadcast();
-
-        creationCode = abi.encodePacked(
-            type(RemoteStrategyFactory).creationCode,
-            abi.encode(
-                governance,
-                CCTPHelpers.POLYGON_USDC,
-                CCTPHelpers.TOKEN_MESSENGER,
-                CCTPHelpers.MESSAGE_TRANSMITTER
-            )
-        );
-
-        address polygonFactory = ICreateX(createX).deployCreate3(
-            salt,
-            creationCode
-        );
-
-        vm.stopBroadcast();
-
-        console.log("[DEPLOYED] Polygon RemoteStrategyFactory:", address(polygonFactory));
-        **/
+         * // Deploy RemoteStrategyFactory on Polygon
+         * vm.createSelectFork(vm.envString("POLYGON_RPC_URL"));
+         * vm.startBroadcast();
+         *
+         * creationCode = abi.encodePacked(
+         *     type(RemoteStrategyFactory).creationCode,
+         *     abi.encode(
+         *         governance,
+         *         CCTPHelpers.POLYGON_USDC,
+         *         CCTPHelpers.TOKEN_MESSENGER,
+         *         CCTPHelpers.MESSAGE_TRANSMITTER
+         *     )
+         * );
+         *
+         * address polygonFactory = ICreateX(createX).deployCreate3(
+         *     salt,
+         *     creationCode
+         * );
+         *
+         * vm.stopBroadcast();
+         *
+         * console.log("[DEPLOYED] Polygon RemoteStrategyFactory:", address(polygonFactory));
+         *
+         */
 
         // Deploy RemoteStrategyFactory on Arbitrum
         vm.createSelectFork(vm.envString("ARB_RPC_URL"));
@@ -123,23 +105,15 @@ contract DeployFactories is Script {
         creationCode = abi.encodePacked(
             type(RemoteStrategyFactory).creationCode,
             abi.encode(
-                governance,
-                CCTPHelpers.ARBITRUM_USDC,
-                CCTPHelpers.TOKEN_MESSENGER,
-                CCTPHelpers.MESSAGE_TRANSMITTER
+                governance, CCTPHelpers.ARBITRUM_USDC, CCTPHelpers.TOKEN_MESSENGER, CCTPHelpers.MESSAGE_TRANSMITTER
             )
         );
 
-        address arbFactory = ICreateX(createX).deployCreate3(
-            salt,
-            creationCode
-        );
+        address arbFactory = ICreateX(createX).deployCreate3(salt, creationCode);
 
         vm.stopBroadcast();
 
         console.log("[DEPLOYED] Arbitrum RemoteStrategyFactory:", address(arbFactory));
-
-        
 
         // Summary
         console.log("\n=================================");

@@ -20,10 +20,6 @@ interface IBaseCrossChain is IBaseHealthCheck {
     /// @return The remote counterpart address
     function REMOTE_COUNTERPART() external view returns (address);
 
-    /// @notice Address allowed to deposit into this strategy
-    /// @return The depositer address
-    function DEPOSITER() external view returns (address);
-
     /// @notice Total assets tracked on remote chain
     /// @return Amount of assets deployed remotely
     function remoteAssets() external view returns (uint256);

@@ -48,8 +48,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
                     VB_USDC,
                     UNIFIED_BRIDGE,
                     KATANA_NETWORK_ID,
-                    remoteCounterpart,
-                    depositor
+                    remoteCounterpart
                 )
             )
         );
@@ -72,7 +71,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             remoteCounterpart,
             "Remote counterpart mismatch"
         );
-        assertEq(newStrategy.DEPOSITER(), depositor, "Depositer mismatch");
+        assertFalse(newStrategy.open(), "Should not be open");
     }
 
     function test_constructor_verifyRealVbTokenProperties() public useEthFork {
@@ -115,8 +114,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
                     VB_USDC,
                     UNIFIED_BRIDGE,
                     KATANA_NETWORK_ID,
-                    remoteCounterpart,
-                    depositor
+                    remoteCounterpart
                 )
             )
         );
@@ -139,8 +137,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             address(0),
             UNIFIED_BRIDGE,
             KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+            remoteCounterpart
         );
     }
 
@@ -155,8 +152,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             VB_WETH,
             UNIFIED_BRIDGE,
             KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+            remoteCounterpart
         );
     }
 
@@ -171,22 +167,6 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             VB_USDC,
             UNIFIED_BRIDGE,
             KATANA_NETWORK_ID,
-            address(0),
-            depositor
-        );
-    }
-
-    function test_constructor_zeroDepositor_reverts() public useEthFork {
-        address remoteCounterpart = address(0xBEEF);
-
-        vm.expectRevert("ZeroAddress");
-        new KatanaStrategy(
-            USDC,
-            "Katana USDC Strategy",
-            VB_USDC,
-            UNIFIED_BRIDGE,
-            KATANA_NETWORK_ID,
-            remoteCounterpart,
             address(0)
         );
     }
@@ -201,8 +181,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
             VB_USDC,
             address(0),
             KATANA_NETWORK_ID,
-            remoteCounterpart,
-            depositor
+            remoteCounterpart
         );
     }
 
@@ -217,8 +196,7 @@ contract KatanaStrategyConstructorTest is KatanaSetup {
                     VB_USDC,
                     UNIFIED_BRIDGE,
                     KATANA_NETWORK_ID,
-                    remoteCounterpart,
-                    depositor
+                    remoteCounterpart
                 )
             )
         );
