@@ -64,7 +64,7 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
     }
 
     /// @dev Remote is send-only; it never ingests reports.
-    function _handleComposeMessage(bytes calldata) internal pure override {
+    function _handleComposeMessage(bytes memory) internal pure override {
         revert("NotSupported");
     }
 

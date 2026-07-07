@@ -4,8 +4,8 @@ pragma solidity ^0.8.18;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IOFT, SendParam, MessagingFee, OFTReceipt} from "../interfaces/layerzero/IOFT.sol";
-import {ILayerZeroComposer} from "../interfaces/layerzero/ILayerZeroComposer.sol";
+import {IOFT, ILayerZeroComposer, SendParam, MessagingFee, OFTReceipt} from "../interfaces/layerzero/IOFT.sol";
+import {OFTComposeMsgCodec} from "../libraries/OFTComposeMsgCodec.sol";
 
 /// @notice LayerZero bridge base for cross-chain strategies.
 /// @dev Tokens AND report messages both travel over the SAME OFT bridge, so
@@ -18,16 +18,9 @@ import {ILayerZeroComposer} from "../interfaces/layerzero/ILayerZeroComposer.sol
 ///      factory. Native fees are paid from this contract's ETH balance.
 abstract contract BaseOFT is ILayerZeroComposer {
     using SafeERC20 for ERC20;
+    using OFTComposeMsgCodec for bytes;
 
     event OFTSent(uint256 amountReceived, bool report, uint256 nativeFee);
-
-    /// @notice Offsets into the OFT compose message (OFTComposeMsgCodec):
-    ///         [0:8] nonce, [8:12] srcEid, [12:44] amountLD,
-    ///         [44:76] composeFrom, [76:] the attached payload.
-    uint256 internal constant SRC_EID_OFFSET = 8;
-    uint256 internal constant AMOUNT_LD_OFFSET = 12;
-    uint256 internal constant COMPOSE_FROM_OFFSET = 44;
-    uint256 internal constant COMPOSE_MSG_OFFSET = 76;
 
     /// @notice The OFT (or OFT adapter) that bridges the strategy asset.
     IOFT public immutable OFT;
@@ -120,18 +113,10 @@ abstract contract BaseOFT is ILayerZeroComposer {
     ) external payable virtual override {
         require(msg.sender == ENDPOINT, "!endpoint");
         require(_from == address(OFT), "!oft");
+        require(_message.srcEid() == REMOTE_EID, "!srcEid");
+        require(_message.composeFrom() == _peer(), "!sender");
 
-        uint32 srcEid = uint32(
-            bytes4(_message[SRC_EID_OFFSET:AMOUNT_LD_OFFSET])
-        );
-        require(srcEid == REMOTE_EID, "!srcEid");
-
-        bytes32 composeFrom = bytes32(
-            _message[COMPOSE_FROM_OFFSET:COMPOSE_MSG_OFFSET]
-        );
-        require(composeFrom == _peer(), "!sender");
-
-        _handleComposeMessage(_message[COMPOSE_MSG_OFFSET:]);
+        _handleComposeMessage(_message.composeMsg());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -154,7 +139,7 @@ abstract contract BaseOFT is ILayerZeroComposer {
 
     /// @notice Handle a decoded report payload. Overridden by the receiver
     ///         (origin); reverts on the send-only side (remote).
-    function _handleComposeMessage(bytes calldata _payload) internal virtual;
+    function _handleComposeMessage(bytes memory _payload) internal virtual;
 
     /// @notice Accept ETH for LayerZero native fees and send() refunds.
     receive() external payable virtual {}

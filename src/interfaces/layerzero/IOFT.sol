@@ -59,3 +59,17 @@ interface IOFT {
     /// @notice The peer OFT contract on a remote endpoint.
     function peers(uint32 _eid) external view returns (bytes32);
 }
+
+/// @title ILayerZeroComposer
+/// @notice The receive side of a LayerZero V2 compose message. After an OFT
+///         delivers tokens to a recipient, the endpoint calls lzCompose on
+///         that recipient with the attached compose payload.
+interface ILayerZeroComposer {
+    function lzCompose(
+        address _from,
+        bytes32 _guid,
+        bytes calldata _message,
+        address _executor,
+        bytes calldata _extraData
+    ) external payable;
+}

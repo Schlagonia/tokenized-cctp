@@ -7,40 +7,9 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {OFTStrategyFactory} from "../OFTStrategyFactory.sol";
+import {OFTRemoteStrategyFactory} from "../OFTRemoteStrategyFactory.sol";
 import {OFTOptions} from "../libraries/OFTOptions.sol";
-import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
-
-interface IOrigin is IStrategyInterface {
-    function OFT() external view returns (address);
-
-    function lzOptions() external view returns (bytes memory);
-
-    function lzCompose(
-        address,
-        bytes32,
-        bytes calldata,
-        address,
-        bytes calldata
-    ) external payable;
-}
-
-interface IRemote {
-    function report() external returns (uint256, uint256);
-
-    function pushFunds(uint256) external returns (uint256);
-
-    function pullFunds(uint256) external returns (uint256);
-
-    function setKeeper(address) external;
-
-    function keeper() external view returns (address);
-
-    function lzOptions() external view returns (bytes memory);
-
-    function totalAssets() external view returns (uint256);
-
-    function balanceOfAsset() external view returns (uint256);
-}
+import {IOFTStrategy, IOFTRemoteStrategy} from "../interfaces/IOFTStrategy.sol";
 
 /// @notice Dual-fork (Ethereum + Robinhood) round-trip for the USDG OFT
 ///         strategy. The origin OFT send and the remote spUSDG vault are
@@ -49,8 +18,8 @@ interface IRemote {
 ///         Katana suites do), since executing it needs off-chain DVN wiring.
 ///         Run with: HOOD_RPC_URL=<url> forge test --match-contract OFTTest
 contract OFTTest is Test {
-    IOrigin public origin;
-    IRemote public remote;
+    IOFTStrategy public origin;
+    IOFTRemoteStrategy public remote;
 
     uint256 public ethFork;
     uint256 public hoodFork;
@@ -81,56 +50,62 @@ contract OFTTest is Test {
         ethFork = vm.createFork(vm.envString("ETH_RPC_URL"));
         hoodFork = vm.createFork(vm.envString("HOOD_RPC_URL"));
 
-        // Remote on Robinhood, deployed via the factory (which computes and
-        // sets the compose options).
+        // Remote factory on Robinhood.
         vm.selectFork(hoodFork);
-        OFTStrategyFactory remoteFactory = new OFTStrategyFactory(
-            management,
-            address(3),
-            keeper,
-            management
+        OFTRemoteStrategyFactory remoteFactory = new OFTRemoteStrategyFactory(
+            governance,
+            RUSDG,
+            RUSDG_OFT,
+            HOOD_ENDPOINT,
+            80_000,
+            100_000
         );
-        remote = IRemote(
-            remoteFactory.newRemote(
-                RUSDG,
-                governance,
-                RUSDG_OFT,
-                HOOD_ENDPOINT,
-                ETHEREUM_EID,
-                address(0xDEAD),
-                VAULT
-            )
-        );
-        vm.prank(governance);
-        remote.setKeeper(keeper);
-        vm.deal(address(remote), 10 ether);
+        address rf = address(remoteFactory);
+        bytes memory rfCode = rf.code;
 
-        // Origin on Ethereum, deployed via the factory, pointed at the remote.
+        // Origin factory on Ethereum. Place the remote factory's code at the
+        // same address so the origin can precompute the remote counterpart
+        // (in production the remote factory is deployed there via CreateX).
         vm.selectFork(ethFork);
+        vm.etch(rf, rfCode);
         OFTStrategyFactory originFactory = new OFTStrategyFactory(
             management,
             address(3),
             keeper,
-            management
+            management,
+            rf,
+            USDG,
+            USDG_OFT,
+            ETH_ENDPOINT,
+            ETHEREUM_EID
         );
-        origin = IOrigin(
-            originFactory.newOrigin(
-                USDG,
+        origin = IOFTStrategy(
+            originFactory.newStrategy(
                 "USDG Robinhood OFT Strategy",
-                USDG_OFT,
-                ETH_ENDPOINT,
                 ROBINHOOD_EID,
                 4663,
-                address(remote),
+                VAULT,
                 depositor
             )
         );
         vm.startPrank(management);
         origin.acceptManagement();
-        // Tolerate small ERC4626 rounding on the remote vault
-        origin.setLossLimitRatio(100);
+        origin.setLossLimitRatio(100); // tolerate small ERC4626 rounding
         vm.stopPrank();
         vm.deal(address(origin), 10 ether);
+
+        // Deploy the remote to the precomputed address, linked to the origin.
+        vm.selectFork(hoodFork);
+        remote = IOFTRemoteStrategy(
+            remoteFactory.deployRemoteStrategy(
+                VAULT,
+                ETHEREUM_EID,
+                address(origin)
+            )
+        );
+        vm.prank(governance);
+        remote.setKeeper(keeper);
+        vm.deal(address(remote), 10 ether);
 
         vm.label(address(origin), "OFTStrategy");
         vm.label(address(remote), "OFTRemoteStrategy");

@@ -9,41 +9,14 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 import {OFTRemoteStrategy} from "../OFTRemoteStrategy.sol";
 import {OFTOptions} from "../libraries/OFTOptions.sol";
-
-interface IOFTRemote {
-    function report() external returns (uint256, uint256);
-
-    function processWithdrawal(uint256 _amount) external;
-
-    function pushFunds(uint256 _amount) external returns (uint256);
-
-    function pullFunds(uint256 _amount) external returns (uint256);
-
-    function setKeeper(address _keeper) external;
-
-    function keeper() external view returns (address);
-
-    function governance() external view returns (address);
-
-    function totalAssets() external view returns (uint256);
-
-    function balanceOfAsset() external view returns (uint256);
-
-    function valueOfDeployedAssets() external view returns (uint256);
-
-    function vault() external view returns (address);
-
-    function OFT() external view returns (address);
-
-    function REMOTE_EID() external view returns (uint32);
-}
+import {IOFTRemoteStrategy} from "../interfaces/IOFTStrategy.sol";
 
 /// @notice Robinhood-fork tests for the remote OFT strategy: exercises the
 ///         REAL spUSDG ERC4626 vault and checks whether a fresh OApp can send
 ///         a report over the real LayerZero endpoint. Run with:
 ///           HOOD_RPC_URL=<url> forge test --match-contract OFTRemoteTest
 contract OFTRemoteTest is Test {
-    IOFTRemote public remote;
+    IOFTRemoteStrategy public remote;
 
     // Robinhood
     address public constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168; // token (vault asset)
@@ -62,7 +35,7 @@ contract OFTRemoteTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("HOOD_RPC_URL"));
 
-        remote = IOFTRemote(
+        remote = IOFTRemoteStrategy(
             address(
                 new OFTRemoteStrategy(
                     USDG,

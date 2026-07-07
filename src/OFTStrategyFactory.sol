@@ -1,9 +1,16 @@
-// SPDX-License-Identifier: AGPL-3.0
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.18;
 
-import {OFTStrategy} from "./OFTStrategy.sol";
-import {OFTRemoteStrategy} from "./OFTRemoteStrategy.sol";
-import {OFTOptions} from "./libraries/OFTOptions.sol";
+import {OFTStrategy as Strategy} from "./OFTStrategy.sol";
+import {CREATE} from "./libraries/CREATE.sol";
+
+interface IOFTRemoteFactory {
+    function computeCreateAddress(
+        address _vault,
+        uint32 _originEid,
+        address _originCounterpart
+    ) external view returns (address);
+}
 
 interface IOriginSetup {
     function setPerformanceFee(uint16) external;
@@ -20,77 +27,92 @@ interface IOriginSetup {
 }
 
 /// @title OFTStrategyFactory
-/// @notice Deploys the OFT strategy pair. Deploy this factory on each chain
-///         and call the matching method: `newOrigin` on the source chain,
-///         `newRemote` on the destination chain.
-/// @dev The factory computes the LayerZero executor options and passes them
-///      into the strategy constructor, so no options are ever hand-encoded or
-///      set post-deploy. The origin's token transfers ride the OFT's enforced
-///      options (empty extra options); the remote attaches compose reports and
-///      so is given lzReceive + lzCompose options.
+/// @notice Factory for OFT origin strategies. Mirrors StrategyFactory: it
+///         precomputes the origin address (CREATE nonce) and the remote
+///         counterpart (CREATE3 via the remote factory), so the pair knows
+///         each other before either is deployed.
+/// @dev The origin's source-chain OFT config (asset, adapter, endpoint) is
+///      fixed; token transfers ride the OFT's enforced options so no extra
+///      options are attached to the origin.
 contract OFTStrategyFactory {
-    event NewOrigin(address indexed strategy, uint32 indexed remoteEid);
+    event NewStrategy(address indexed strategy, uint32 indexed remoteEid);
 
-    event NewRemote(address indexed strategy, uint32 indexed originEid);
-
-    event GasSet(uint128 lzReceiveGas, uint128 lzComposeGas);
-
-    /// @notice Yearn roles applied to origin (TokenizedStrategy) deployments.
+    /// @notice Roles applied to deployed origin strategies.
     address public management;
     address public performanceFeeRecipient;
     address public keeper;
     address public emergencyAdmin;
 
-    /// @notice Executor gas for the destination lzReceive (token credit).
-    uint128 public lzReceiveGas;
+    /// @notice The remote factory (same address on all chains via CreateX).
+    address public immutable REMOTE_FACTORY;
 
-    /// @notice Executor gas for the destination lzCompose (report handler).
-    uint128 public lzComposeGas;
+    /// @notice Source-chain OFT config.
+    address public immutable ASSET;
+    address public immutable OFT;
+    address public immutable ENDPOINT;
+
+    /// @notice LayerZero endpoint ID of this (origin) chain.
+    uint32 public immutable ORIGIN_EID;
+
+    uint256 public nonce;
+
+    /// @notice remoteEid => remoteCounterpart => strategy.
+    mapping(uint32 => mapping(address => address)) public deployments;
 
     constructor(
         address _management,
         address _performanceFeeRecipient,
         address _keeper,
-        address _emergencyAdmin
+        address _emergencyAdmin,
+        address _remoteFactory,
+        address _asset,
+        address _oft,
+        address _endpoint,
+        uint32 _originEid
     ) {
         management = _management;
         performanceFeeRecipient = _performanceFeeRecipient;
         keeper = _keeper;
         emergencyAdmin = _emergencyAdmin;
-
-        // Sensible defaults; the report handler is a small decode + SSTOREs.
-        lzReceiveGas = 80_000;
-        lzComposeGas = 100_000;
+        REMOTE_FACTORY = _remoteFactory;
+        ASSET = _asset;
+        OFT = _oft;
+        ENDPOINT = _endpoint;
+        ORIGIN_EID = _originEid;
+        nonce = 1;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            DEPLOYMENTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Deploy the origin strategy on the source chain.
-    /// @dev Token transfers ride the OFT's enforced options, so no extra
-    ///      options are attached (empty).
-    function newOrigin(
-        address _asset,
+    /// @notice Deploy a new origin strategy, linked to its remote counterpart.
+    /// @param _name Strategy name
+    /// @param _remoteEid LayerZero endpoint ID of the remote chain
+    /// @param _remoteChainId Chain id of the remote chain
+    /// @param _remoteVault The ERC4626 vault the remote deploys into
+    /// @param _depositer Address allowed to deposit
+    function newStrategy(
         string calldata _name,
-        address _oft,
-        address _endpoint,
         uint32 _remoteEid,
         uint256 _remoteChainId,
-        address _remoteCounterpart,
+        address _remoteVault,
         address _depositer
     ) external returns (address) {
-        OFTStrategy strategy = new OFTStrategy(
-            _asset,
+        address predicted = computeCreateAddress(nonce);
+        address remoteCounterpart = computeRemoteCreateAddress(
+            _remoteVault,
+            predicted
+        );
+
+        Strategy strategy = new Strategy(
+            ASSET,
             _name,
-            _oft,
-            _endpoint,
+            OFT,
+            ENDPOINT,
             _remoteEid,
             _remoteChainId,
-            _remoteCounterpart,
+            remoteCounterpart,
             _depositer,
-            "" // origin sends tokens only; rides the OFT's enforced options
+            "" // origin token sends ride the OFT's enforced options
         );
+        require(address(strategy) == predicted, "!predicted");
 
         IOriginSetup s = IOriginSetup(address(strategy));
         s.setPerformanceFee(0);
@@ -100,52 +122,31 @@ contract OFTStrategyFactory {
         s.setEmergencyAdmin(emergencyAdmin);
         s.setPendingManagement(management);
 
-        emit NewOrigin(address(strategy), _remoteEid);
+        deployments[_remoteEid][remoteCounterpart] = address(strategy);
+        nonce++;
+
+        emit NewStrategy(address(strategy), _remoteEid);
         return address(strategy);
     }
 
-    /// @notice Deploy the remote strategy on the destination chain.
-    /// @dev Attaches compose reports, so it is given the computed lzReceive +
-    ///      lzCompose options. Its keeper is set by governance post-deploy.
-    function newRemote(
-        address _asset,
-        address _governance,
-        address _oft,
-        address _endpoint,
-        uint32 _originEid,
-        address _originCounterpart,
-        address _vault
-    ) external returns (address) {
-        OFTRemoteStrategy strategy = new OFTRemoteStrategy(
-            _asset,
-            _governance,
-            _oft,
-            _endpoint,
-            _originEid,
-            _originCounterpart,
-            _vault,
-            remoteOptions()
-        );
-
-        emit NewRemote(address(strategy), _originEid);
-        return address(strategy);
+    /// @notice Predict the origin address for a given factory nonce.
+    function computeCreateAddress(
+        uint256 _nonce
+    ) public view returns (address) {
+        return CREATE.predict(address(this), _nonce);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            CONFIG
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice The compose options the factory attaches to remote strategies.
-    function remoteOptions() public view returns (bytes memory) {
-        return OFTOptions.composeOptions(lzReceiveGas, lzComposeGas);
-    }
-
-    /// @notice Tune the executor gas used for future deployments.
-    function setGas(uint128 _lzReceiveGas, uint128 _lzComposeGas) external {
-        require(msg.sender == management, "!management");
-        lzReceiveGas = _lzReceiveGas;
-        lzComposeGas = _lzComposeGas;
-        emit GasSet(_lzReceiveGas, _lzComposeGas);
+    /// @notice Compute the remote counterpart address for an origin.
+    function computeRemoteCreateAddress(
+        address _vault,
+        address _originCounterpart
+    ) public view returns (address) {
+        return
+            IOFTRemoteFactory(REMOTE_FACTORY).computeCreateAddress(
+                _vault,
+                ORIGIN_EID,
+                _originCounterpart
+            );
     }
 
     function setAddresses(

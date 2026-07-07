@@ -8,27 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {OFTStrategy} from "../OFTStrategy.sol";
-import {IStrategyInterface} from "../interfaces/IStrategyInterface.sol";
-
-interface IOFTStrategy is IStrategyInterface {
-    function OFT() external view returns (address);
-
-    function ENDPOINT() external view returns (address);
-
-    function REMOTE_EID() external view returns (uint32);
-
-    function lzCompose(
-        address _from,
-        bytes32 _guid,
-        bytes calldata _message,
-        address _executor,
-        bytes calldata _extraData
-    ) external payable;
-
-    function setLzOptions(bytes calldata _options) external;
-
-    function rescueETH(address _to, uint256 _amount) external;
-}
+import {IOFTStrategy} from "../interfaces/IOFTStrategy.sol";
 
 /// @notice Mainnet-only tests for the USDG -> Robinhood OFT strategy: verifies
 ///         the outbound OFT bridge against the REAL USDG adapter and endpoint,

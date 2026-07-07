@@ -58,7 +58,7 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Decode and apply a remote report (totalAssets, timestamp).
-    function _handleComposeMessage(bytes calldata _payload) internal override {
+    function _handleComposeMessage(bytes memory _payload) internal override {
         require(_payload.length > 0, "EmptyMessage");
         (uint256 amount, uint256 timestamp) = abi.decode(
             _payload,
