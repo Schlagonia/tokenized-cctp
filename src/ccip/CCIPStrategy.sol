@@ -75,6 +75,11 @@ contract CCIPStrategy is BaseCrossChain, BaseCCIP {
                             MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Update the destination ccipReceive gas limit.
+    function setGasLimit(uint256 _gasLimit) external onlyManagement {
+        _setGasLimit(_gasLimit);
+    }
+
     /// @notice Rescue ETH held for CCIP fees.
     function rescueETH(address _to, uint256 _amount) external onlyManagement {
         _rescueETH(_to, _amount);

@@ -19,6 +19,8 @@ abstract contract BaseCCIP is IAny2EVMMessageReceiver, IERC165 {
 
     event CCIPSent(bytes32 messageId, uint256 amount, bool report, uint256 fee);
 
+    event GasLimitSet(uint256 gasLimit);
+
     /// @notice The CCIP router on this chain.
     IRouterClient public immutable ROUTER;
 
@@ -45,21 +47,27 @@ abstract contract BaseCCIP is IAny2EVMMessageReceiver, IERC165 {
 
     /// @notice Send `_amount` of the asset to the counterpart strategy,
     ///         optionally carrying a report as the message data.
+    /// @dev Returns the amount that actually left this contract (measured as a
+    ///      balance delta) rather than the requested amount, so a fee-taking or
+    ///      non-1:1 token pool cannot cause the origin to over-credit
+    ///      remoteAssets.
     /// @param _amount Amount to bridge (may be 0 for a data-only report)
     /// @param _report Optional report payload; empty for a token-only transfer
-    /// @return The amount bridged
+    /// @return sent The amount actually bridged
     function _ccipSend(
         uint256 _amount,
         bytes memory _report
-    ) internal returns (uint256) {
+    ) internal returns (uint256 sent) {
+        address token = _ccipToken();
+
         Client.EVMTokenAmount[] memory tokenAmounts;
         if (_amount > 0) {
             tokenAmounts = new Client.EVMTokenAmount[](1);
             tokenAmounts[0] = Client.EVMTokenAmount({
-                token: _ccipToken(),
+                token: token,
                 amount: _amount
             });
-            ERC20(_ccipToken()).forceApprove(address(ROUTER), _amount);
+            ERC20(token).forceApprove(address(ROUTER), _amount);
         }
 
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
@@ -78,13 +86,20 @@ abstract contract BaseCCIP is IAny2EVMMessageReceiver, IERC165 {
         uint256 fee = ROUTER.getFee(REMOTE_CHAIN_SELECTOR, message);
         require(address(this).balance >= fee, "!fee");
 
+        uint256 balanceBefore = _amount > 0
+            ? ERC20(token).balanceOf(address(this))
+            : 0;
+
         bytes32 messageId = ROUTER.ccipSend{value: fee}(
             REMOTE_CHAIN_SELECTOR,
             message
         );
 
-        emit CCIPSent(messageId, _amount, _report.length > 0, fee);
-        return _amount;
+        sent = _amount > 0
+            ? balanceBefore - ERC20(token).balanceOf(address(this))
+            : 0;
+
+        emit CCIPSent(messageId, sent, _report.length > 0, fee);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -122,6 +137,14 @@ abstract contract BaseCCIP is IAny2EVMMessageReceiver, IERC165 {
     /*//////////////////////////////////////////////////////////////
                             INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Update the destination ccipReceive gas limit. Exposed with
+    ///         access control by the concrete strategy so it can be raised if
+    ///         destination execution cost ever rises (avoiding stuck deliveries).
+    function _setGasLimit(uint256 _gasLimit) internal {
+        gasLimit = _gasLimit;
+        emit GasLimitSet(_gasLimit);
+    }
 
     function _rescueETH(address _to, uint256 _amount) internal {
         (bool success, ) = _to.call{value: _amount}("");

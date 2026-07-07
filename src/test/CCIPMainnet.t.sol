@@ -214,6 +214,16 @@ contract CCIPMainnetTest is Test {
         assertEq(recipient.balance, 1 ether);
     }
 
+    function test_setGasLimit_onlyManagement() public {
+        vm.prank(user);
+        vm.expectRevert("!management");
+        strategy.setGasLimit(500_000);
+
+        vm.prank(management);
+        strategy.setGasLimit(500_000);
+        assertEq(strategy.gasLimit(), 500_000);
+    }
+
     function test_rescue_blocksAsset() public {
         vm.prank(management);
         vm.expectRevert(bytes("InvalidToken"));

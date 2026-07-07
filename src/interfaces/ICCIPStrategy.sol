@@ -16,6 +16,9 @@ interface IBaseCCIP {
     /// @notice Gas limit for the destination ccipReceive execution.
     function gasLimit() external view returns (uint256);
 
+    /// @notice Update the destination ccipReceive gas limit.
+    function setGasLimit(uint256 _gasLimit) external;
+
     /// @notice Receive a CCIP message (tokens and/or a report).
     function ccipReceive(Client.Any2EVMMessage calldata _message) external;
 

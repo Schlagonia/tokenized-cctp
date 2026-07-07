@@ -138,6 +138,16 @@ contract CCIPRemoteTest is Test {
         remote.report();
     }
 
+    function test_setGasLimit_onlyGovernance() public {
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remote.setGasLimit(500_000);
+
+        vm.prank(governance);
+        remote.setGasLimit(500_000);
+        assertEq(remote.gasLimit(), 500_000);
+    }
+
     /// @notice The remote never ingests reports; a data-carrying message from
     ///         the origin reverts NotSupported.
     function test_ccipReceive_reportNotSupported() public {

@@ -71,6 +71,11 @@ contract CCIPRemoteStrategy is BaseRemote4626, BaseCCIP {
                             GOVERNANCE
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Update the destination ccipReceive gas limit.
+    function setGasLimit(uint256 _gasLimit) external onlyGovernance {
+        _setGasLimit(_gasLimit);
+    }
+
     /// @notice Rescue ETH held for CCIP fees.
     function rescueETH(address _to, uint256 _amount) external onlyGovernance {
         _rescueETH(_to, _amount);
