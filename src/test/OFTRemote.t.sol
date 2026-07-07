@@ -81,6 +81,18 @@ contract OFTRemoteTest is Test {
         assertEq(IERC4626(VAULT).asset(), USDG);
     }
 
+    function test_setLzOptions_onlyGovernance() public {
+        bytes memory newOptions = OFTOptions.composeOptions(90_000, 120_000);
+
+        vm.prank(user);
+        vm.expectRevert("!governance");
+        remote.setLzOptions(newOptions);
+
+        vm.prank(governance);
+        remote.setLzOptions(newOptions);
+        assertEq(remote.lzOptions(), newOptions);
+    }
+
     /// @notice Bridged USDG deposits into the REAL spUSDG vault.
     function test_pushFunds_realVault() public {
         uint256 amount = 100_000e6;

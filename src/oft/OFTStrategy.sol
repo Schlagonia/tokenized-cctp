@@ -75,6 +75,11 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
                             MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Update the executor options (destination gas).
+    function setLzOptions(bytes memory _lzOptions) external onlyManagement {
+        _setLzOptions(_lzOptions);
+    }
+
     /// @notice Rescue ETH held for LayerZero fees.
     function rescueETH(address _to, uint256 _amount) external onlyManagement {
         _rescueETH(_to, _amount);

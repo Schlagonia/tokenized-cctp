@@ -246,4 +246,16 @@ contract OFTMainnetTest is Test {
         vm.expectRevert(bytes("InvalidToken"));
         strategy.rescue(USDG, management, 1);
     }
+
+    function test_setLzOptions_onlyManagement() public {
+        bytes memory newOptions = hex"0003";
+
+        vm.prank(user);
+        vm.expectRevert("!management");
+        strategy.setLzOptions(newOptions);
+
+        vm.prank(management);
+        strategy.setLzOptions(newOptions);
+        assertEq(strategy.lzOptions(), newOptions);
+    }
 }

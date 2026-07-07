@@ -18,6 +18,8 @@ interface IBaseOFT {
     /// @notice Type-3 executor options attached to sends.
     function lzOptions() external view returns (bytes memory);
 
+    function setLzOptions(bytes memory _lzOptions) external;
+
     /// @notice Receive a report attached to an OFT transfer (compose).
     function lzCompose(
         address _from,

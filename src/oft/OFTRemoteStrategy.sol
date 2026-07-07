@@ -72,6 +72,11 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
                             GOVERNANCE
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Update the executor options (destination compose gas).
+    function setLzOptions(bytes memory _lzOptions) external onlyGovernance {
+        _setLzOptions(_lzOptions);
+    }
+
     /// @notice Rescue ETH held for LayerZero fees.
     function rescueETH(address _to, uint256 _amount) external onlyGovernance {
         _rescueETH(_to, _amount);

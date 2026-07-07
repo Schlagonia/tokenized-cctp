@@ -22,6 +22,8 @@ abstract contract BaseOFT is ILayerZeroComposer {
 
     event OFTSent(uint256 amountReceived, bool report, uint256 nativeFee);
 
+    event LzOptionsSet(bytes lzOptions);
+
     /// @notice The OFT (or OFT adapter) that bridges the strategy asset.
     IOFT public immutable OFT;
 
@@ -122,6 +124,15 @@ abstract contract BaseOFT is ILayerZeroComposer {
     /*//////////////////////////////////////////////////////////////
                             INTERNAL
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Update the executor options (destination lzReceive/lzCompose
+    ///         gas). Exposed with access control by the concrete strategy so it
+    ///         can be raised if destination execution cost ever rises (avoiding
+    ///         stuck deliveries).
+    function _setLzOptions(bytes memory _lzOptions) internal {
+        lzOptions = _lzOptions;
+        emit LzOptionsSet(_lzOptions);
+    }
 
     function _rescueETH(address _to, uint256 _amount) internal {
         (bool success, ) = _to.call{value: _amount}("");
