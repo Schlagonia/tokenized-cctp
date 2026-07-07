@@ -2,6 +2,7 @@
 pragma solidity ^0.8.18;
 
 import {OFTStrategy as Strategy} from "./OFTStrategy.sol";
+import {IOFTStrategy} from "../interfaces/IOFTStrategy.sol";
 import {CREATE} from "../libraries/CREATE.sol";
 
 interface IOFTRemoteFactory {
@@ -10,20 +11,6 @@ interface IOFTRemoteFactory {
         uint32 _originEid,
         address _originCounterpart
     ) external view returns (address);
-}
-
-interface IOriginSetup {
-    function setPerformanceFee(uint16) external;
-
-    function setProfitMaxUnlockTime(uint256) external;
-
-    function setPerformanceFeeRecipient(address) external;
-
-    function setKeeper(address) external;
-
-    function setEmergencyAdmin(address) external;
-
-    function setPendingManagement(address) external;
 }
 
 /// @title OFTStrategyFactory
@@ -117,7 +104,7 @@ contract OFTStrategyFactory {
     }
 
     function _setupRoles(address _strategy) internal {
-        IOriginSetup s = IOriginSetup(_strategy);
+        IOFTStrategy s = IOFTStrategy(_strategy);
         s.setPerformanceFee(0);
         s.setProfitMaxUnlockTime(0);
         s.setPerformanceFeeRecipient(performanceFeeRecipient);
