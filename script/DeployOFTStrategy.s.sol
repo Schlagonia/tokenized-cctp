@@ -31,13 +31,15 @@ contract DeployOFTStrategy is Script {
     address constant USDG_OFT = 0x147BdE4F997f0d4C7544ED0C55eAcf1E5E6bf9c4;
     address constant ETH_ENDPOINT = 0x1a44076050125825900e736c501f859c50fE728c;
 
-    // Robinhood (verified on-chain via the mainnet adapter peer)
+    // Robinhood (verified on-chain 2026-07-06)
     address constant ROBINHOOD_USDG =
-        0x0d54755f5106BfdB43f7a35f5D49a23F940628d1; // OFT peer on Robinhood
+        0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168; // USDG token (vault asset)
+    address constant ROBINHOOD_USDG_OFT =
+        0x0d54755f5106BfdB43f7a35f5D49a23F940628d1; // OFT adapter, peered to mainnet
     address constant ROBINHOOD_ENDPOINT =
         0x6F475642a6e85809B1c36Fa62763669b1b48DD5B;
     address constant ROBINHOOD_VAULT =
-        0xde770c84FE66E063336b31737cFE9790f18c4087;
+        0xde770c84FE66E063336b31737cFE9790f18c4087; // spUSDG ERC4626
 
     function run() external {
         require(DEPOSITER != address(0), "Set DEPOSITER");
@@ -50,8 +52,7 @@ contract DeployOFTStrategy is Script {
             uint256(remoteNonce)
         );
         require(
-            IOFT(ROBINHOOD_USDG).token() == ROBINHOOD_USDG ||
-                IOFT(ROBINHOOD_USDG).token() != address(0),
+            IOFT(ROBINHOOD_USDG_OFT).token() == ROBINHOOD_USDG,
             "BadRobinhoodOFT"
         );
 
@@ -87,7 +88,7 @@ contract DeployOFTStrategy is Script {
         OFTRemoteStrategy remote = new OFTRemoteStrategy(
             ROBINHOOD_USDG,
             GOVERNANCE,
-            ROBINHOOD_USDG, // OFT (native OFT: token == self) -- verify at deploy
+            ROBINHOOD_USDG_OFT,
             ROBINHOOD_ENDPOINT,
             ETHEREUM_EID,
             address(origin),
