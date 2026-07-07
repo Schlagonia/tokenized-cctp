@@ -8,8 +8,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {OFTStrategyFactory} from "../oft/OFTStrategyFactory.sol";
 import {OFTRemoteStrategyFactory} from "../oft/OFTRemoteStrategyFactory.sol";
-import {OFTOptions} from "../oft/OFTOptions.sol";
-import {IOFTStrategy, IOFTRemoteStrategy} from "../oft/IOFTStrategy.sol";
+import {OFTOptions} from "../libraries/OFTOptions.sol";
+import {IOFTStrategy, IOFTRemoteStrategy} from "../interfaces/IOFTStrategy.sol";
 
 /// @notice Dual-fork (Ethereum + Robinhood) round-trip for the USDG OFT
 ///         strategy. The origin OFT send and the remote spUSDG vault are

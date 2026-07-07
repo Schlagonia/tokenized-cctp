@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import {Script, console} from "forge-std/Script.sol";
 import {OFTStrategyFactory} from "../src/oft/OFTStrategyFactory.sol";
 import {OFTRemoteStrategyFactory} from "../src/oft/OFTRemoteStrategyFactory.sol";
-import {IOFT} from "../src/oft/IOFT.sol";
+import {IOFT} from "../src/interfaces/layerzero/IOFT.sol";
 
 /// @title DeployOFTStrategy
 /// @notice Deploys the USDG OFT bridge strategy via the factory pair (mirrors

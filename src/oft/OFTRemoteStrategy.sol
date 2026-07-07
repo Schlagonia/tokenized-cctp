@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {BaseRemote4626} from "../bases/BaseRemote4626.sol";
-import {BaseOFT} from "./BaseOFT.sol";
+import {BaseOFT} from "../bases/BaseOFT.sol";
 
 /// @title OFTRemoteStrategy
 /// @notice Remote strategy that receives its asset via a LayerZero OFT,

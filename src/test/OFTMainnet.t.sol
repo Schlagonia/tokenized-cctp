@@ -8,7 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {OFTStrategy} from "../oft/OFTStrategy.sol";
-import {IOFTStrategy} from "../oft/IOFTStrategy.sol";
+import {IOFTStrategy} from "../interfaces/IOFTStrategy.sol";
 
 /// @notice Mainnet-only tests for the USDG -> Robinhood OFT strategy: verifies
 ///         the outbound OFT bridge against the REAL USDG adapter and endpoint,

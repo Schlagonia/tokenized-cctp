@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {BaseCrossChain} from "../bases/BaseCrossChain.sol";
-import {BaseOFT} from "./BaseOFT.sol";
+import {BaseOFT} from "../bases/BaseOFT.sol";
 
 /// @title OFTStrategy
 /// @notice Origin strategy that bridges its asset to a remote chain via a

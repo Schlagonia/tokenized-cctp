@@ -4,8 +4,8 @@ pragma solidity ^0.8.18;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {IOFT, ILayerZeroComposer, SendParam, MessagingFee, OFTReceipt} from "./IOFT.sol";
-import {OFTComposeMsgCodec} from "./OFTComposeMsgCodec.sol";
+import {IOFT, ILayerZeroComposer, SendParam, MessagingFee, OFTReceipt} from "../interfaces/layerzero/IOFT.sol";
+import {OFTComposeMsgCodec} from "../libraries/OFTComposeMsgCodec.sol";
 
 /// @notice LayerZero bridge base for cross-chain strategies.
 /// @dev Tokens AND report messages both travel over the SAME OFT bridge, so
