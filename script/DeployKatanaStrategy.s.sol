@@ -73,8 +73,11 @@ contract DeployKatanaStrategy is Script {
         vm.startBroadcast(deployer);
 
         KatanaStrategy originStrategy = new KatanaStrategy(
-            UNDERLYING_ASSET, STRATEGY_NAME, VB_TOKEN, UNIFIED_BRIDGE, KATANA_NETWORK_ID, predictedRemote, DEPOSITER
+            UNDERLYING_ASSET, STRATEGY_NAME, VB_TOKEN, UNIFIED_BRIDGE, KATANA_NETWORK_ID, predictedRemote
         );
+
+        // Deposits are closed by default; whitelist the depositer.
+        IBaseHealthCheck(address(originStrategy)).setAllowed(DEPOSITER, true);
 
         IBaseHealthCheck(address(originStrategy)).setPendingManagement(MANAGEMENT);
 
