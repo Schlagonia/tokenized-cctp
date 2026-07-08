@@ -47,7 +47,6 @@ contract OFTMainnetTest is Test {
                     ROBINHOOD_EID,
                     4663, // Robinhood chain id
                     remoteCounterpart,
-                    depositor,
                     "" // origin token sends ride the OFT enforced options
                 )
             )
@@ -60,6 +59,8 @@ contract OFTMainnetTest is Test {
         strategy.acceptManagement();
         vm.prank(management);
         strategy.setKeeper(keeper);
+        vm.prank(management);
+        strategy.setAllowed(depositor, true); // allowed mapping gates deposits
 
         // ETH reserve for LayerZero fees
         vm.deal(address(strategy), 10 ether);

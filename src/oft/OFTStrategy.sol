@@ -26,7 +26,6 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
         uint32 _remoteEid,
         uint256 _remoteChainId,
         address _remoteCounterpart,
-        address _depositer,
         bytes memory _lzOptions
     )
         BaseCrossChain(
@@ -34,8 +33,7 @@ contract OFTStrategy is BaseCrossChain, BaseOFT {
             _name,
             bytes32(uint256(_remoteEid)),
             _remoteChainId,
-            _remoteCounterpart,
-            _depositer
+            _remoteCounterpart
         )
         BaseOFT(_oft, _endpoint, _remoteEid, _lzOptions)
     {

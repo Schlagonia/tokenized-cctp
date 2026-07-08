@@ -24,16 +24,14 @@ contract KatanaStrategy is BaseCrossChain, BaseLxLy {
         address _vbToken,
         address _bridge,
         uint32 _remoteNetworkId,
-        address _remoteCounterpart,
-        address _depositer
+        address _remoteCounterpart
     )
         BaseCrossChain(
             _asset,
             _name,
             bytes32(uint256(_remoteNetworkId)),
             747474,
-            _remoteCounterpart,
-            _depositer
+            _remoteCounterpart
         )
         BaseLxLy(_bridge)
     {

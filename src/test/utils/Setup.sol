@@ -198,13 +198,16 @@ contract Setup is Test, IEvents {
                 "CCTP USDC Strategy",
                 BASE_DOMAIN,
                 BASE_CHAIN_ID,
-                address(vault),
-                depositor
+                address(vault)
             )
         );
 
         vm.prank(management);
         _strategy.acceptManagement();
+
+        // Deposits are gated by the BaseHealthCheck allowed mapping.
+        vm.prank(management);
+        _strategy.setAllowed(depositor, true);
 
         factory = _strategy.FACTORY();
     }

@@ -22,7 +22,6 @@ contract DeployOFTStrategy is Script {
     uint32 constant ROBINHOOD_EID = 30416;
     uint256 constant ROBINHOOD_CHAIN_ID = 4663;
 
-    address constant DEPOSITER = address(0); // TODO: set treasury depositor
     address constant GOVERNANCE = 0xBe7c7efc1ef3245d37E3157F76A512108D6D7aE6;
     address constant MANAGEMENT = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
     address constant KEEPER = 0x604e586F17cE106B64185A7a0d2c1Da5bAce711E;
@@ -45,7 +44,6 @@ contract DeployOFTStrategy is Script {
         0xde770c84FE66E063336b31737cFE9790f18c4087;
 
     function run() external {
-        require(DEPOSITER != address(0), "Set DEPOSITER");
         require(
             IOFT(ROBINHOOD_USDG_OFT).token() == ROBINHOOD_USDG,
             "BadRobinhoodOFT"
@@ -81,8 +79,7 @@ contract DeployOFTStrategy is Script {
             ETHEREUM_EID,
             ROBINHOOD_EID,
             ROBINHOOD_CHAIN_ID,
-            ROBINHOOD_VAULT,
-            DEPOSITER
+            ROBINHOOD_VAULT
         );
         vm.stopBroadcast();
         console.log("Origin (Ethereum):", origin);

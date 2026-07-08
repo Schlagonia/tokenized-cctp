@@ -22,7 +22,6 @@ contract DeployHyperStrategy is Script {
     // STRATEGY PARAMETERS - CONFIGURE THESE
     // ============================================
     string constant STRATEGY_NAME = "HLP CCTP USDC";
-    address constant DEPOSITER = 0xC62fC9b0bb3D9c7a47A6af1ed30d7a4C74E37774;
     address constant GOVERNANCE = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
     address deployer = 0x1b5f15DCb82d25f91c65b53CEe151E8b9fBdD271;
 
@@ -50,8 +49,7 @@ contract DeployHyperStrategy is Script {
             MESSAGE_TRANSMITTER,
             CCTPHelpers.HYPEREVM_DOMAIN,
             999,
-            predictedRemote,
-            DEPOSITER
+            predictedRemote
         );
 
         vm.stopBroadcast();

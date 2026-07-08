@@ -81,13 +81,13 @@ contract OFTTest is Test {
                 ETHEREUM_EID,
                 ROBINHOOD_EID,
                 4663,
-                VAULT,
-                depositor
+                VAULT
             )
         );
         vm.startPrank(management);
         origin.acceptManagement();
         origin.setLossLimitRatio(100); // tolerate small ERC4626 rounding
+        origin.setAllowed(depositor, true); // allowed mapping gates deposits
         vm.stopPrank();
         vm.deal(address(origin), 10 ether);
 

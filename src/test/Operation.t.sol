@@ -21,19 +21,19 @@ contract OperationTest is Setup {
         assertEq(strategy.keeper(), keeper);
 
         // Generic cross-chain properties
-        assertEq(strategy.DEPOSITER(), depositor);
+        assertTrue(strategy.allowed(depositor));
         assertEq(strategy.REMOTE_COUNTERPART(), address(remoteStrategy));
         assertEq(calculateRemoteAssets(strategy), 0);
     }
 
-    // Test 2: Only DEPOSITER can deposit (generic access control test)
+    // Test 2: Only allowed addresses can deposit (generic access control test)
     function test_depositLimits() public useEthFork {
         uint256 _amount = 1000e6; // $1000 USDC
 
         // Non-depositer cannot deposit (availableDepositLimit = 0)
         assertEq(strategy.availableDepositLimit(user), 0);
 
-        // DEPOSITER can deposit (availableDepositLimit = max)
+        // Allowed depositor can deposit (availableDepositLimit = max)
         assertEq(strategy.availableDepositLimit(depositor), type(uint256).max);
 
         // Try to deposit as user (should fail)
@@ -58,7 +58,7 @@ contract OperationTest is Setup {
     function test_depositLimitsFuzz(uint256 _amount) public useEthFork {
         _amount = bound(_amount, minFuzzAmount, maxFuzzAmount);
 
-        // DEPOSITER can deposit (availableDepositLimit = max)
+        // Allowed depositor can deposit (availableDepositLimit = max)
         assertEq(strategy.availableDepositLimit(depositor), type(uint256).max);
 
         // Deposit as depositer (should succeed)

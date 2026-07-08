@@ -60,7 +60,6 @@ contract OFTStrategyFactory {
     /// @param _remoteEid LayerZero endpoint ID of the remote chain
     /// @param _remoteChainId Chain id of the remote chain
     /// @param _remoteVault ERC4626 vault the remote deploys into
-    /// @param _depositer Address allowed to deposit
     function newStrategy(
         string memory _name,
         address _asset,
@@ -69,8 +68,7 @@ contract OFTStrategyFactory {
         uint32 _originEid,
         uint32 _remoteEid,
         uint256 _remoteChainId,
-        address _remoteVault,
-        address _depositer
+        address _remoteVault
     ) external returns (address) {
         address predicted = computeCreateAddress(nonce);
         address remoteCounterpart = computeRemoteCreateAddress(
@@ -88,7 +86,6 @@ contract OFTStrategyFactory {
                 _remoteEid,
                 _remoteChainId,
                 remoteCounterpart,
-                _depositer,
                 "" // origin token sends ride the OFT's enforced options
             )
         );
