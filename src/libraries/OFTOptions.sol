@@ -6,6 +6,20 @@ pragma solidity ^0.8.18;
 ///         the OptionsBuilder dependency. Layout per option:
 ///         workerId(1)=executor | size(2)=optionType+data | optionType(1) | data
 library OFTOptions {
+    /// @notice lzReceive-only options for a plain token transfer (no compose).
+    function receiveOptions(
+        uint128 _lzReceiveGas
+    ) internal pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                uint16(3), // TYPE_3
+                uint8(1),
+                uint16(17),
+                uint8(1),
+                _lzReceiveGas // lzReceive: gas(16)
+            );
+    }
+
     /// @notice lzReceive (deliver tokens) + lzCompose (run the report) options.
     function composeOptions(
         uint128 _lzReceiveGas,
