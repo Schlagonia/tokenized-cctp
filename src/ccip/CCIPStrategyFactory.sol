@@ -69,7 +69,6 @@ contract CCIPStrategyFactory {
     /// @param _remoteChainSelector CCIP chain selector of the remote chain
     /// @param _remoteChainId Chain id of the remote chain
     /// @param _remoteVault ERC4626 vault the remote deploys into
-    /// @param _depositer Address allowed to deposit
     function newStrategy(
         string memory _name,
         address _asset,
@@ -77,8 +76,7 @@ contract CCIPStrategyFactory {
         uint64 _originChainSelector,
         uint64 _remoteChainSelector,
         uint256 _remoteChainId,
-        address _remoteVault,
-        address _depositer
+        address _remoteVault
     ) external returns (address) {
         address predicted = computeCreateAddress(nonce);
         address remoteCounterpart = computeRemoteCreateAddress(
@@ -95,7 +93,6 @@ contract CCIPStrategyFactory {
                 _remoteChainSelector,
                 _remoteChainId,
                 remoteCounterpart,
-                _depositer,
                 gasLimit
             )
         );

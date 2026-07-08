@@ -24,7 +24,6 @@ contract CCIPStrategy is BaseCrossChain, BaseCCIP {
         uint64 _remoteChainSelector,
         uint256 _remoteChainId,
         address _remoteCounterpart,
-        address _depositer,
         uint256 _gasLimit
     )
         BaseCrossChain(
@@ -32,8 +31,7 @@ contract CCIPStrategy is BaseCrossChain, BaseCCIP {
             _name,
             bytes32(uint256(_remoteChainSelector)),
             _remoteChainId,
-            _remoteCounterpart,
-            _depositer
+            _remoteCounterpart
         )
         BaseCCIP(_router, _remoteChainSelector, _gasLimit)
     {}

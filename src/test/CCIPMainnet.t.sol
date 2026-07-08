@@ -40,7 +40,6 @@ contract CCIPMainnetTest is Test {
                     ARB_SELECTOR,
                     42161,
                     remoteCounterpart,
-                    depositor,
                     GAS_LIMIT
                 )
             )
@@ -53,6 +52,9 @@ contract CCIPMainnetTest is Test {
         strategy.acceptManagement();
         vm.prank(management);
         strategy.setKeeper(keeper);
+        // Deposits are gated by the BaseHealthCheck allowed mapping.
+        vm.prank(management);
+        strategy.setAllowed(depositor, true);
 
         vm.deal(address(strategy), 10 ether);
 

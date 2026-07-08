@@ -82,13 +82,14 @@ contract CCIPTest is Test {
                 ETH_SELECTOR,
                 ARB_SELECTOR,
                 42161,
-                address(vault),
-                depositor
+                address(vault)
             )
         );
         vm.startPrank(management);
         origin.acceptManagement();
         origin.setLossLimitRatio(100);
+        // Deposits are gated by the BaseHealthCheck allowed mapping.
+        origin.setAllowed(depositor, true);
         vm.stopPrank();
         vm.deal(address(origin), 10 ether);
 
