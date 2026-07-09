@@ -51,15 +51,13 @@ contract StrategyFactory is BaseCCTP {
      * @param _name The name of the strategy.
      * @param _remoteDomain The remote domain of the strategy.
      * @param _remoteVault The ERC4626 vault on the remote chain.
-     * @param _depositer The depositer of the strategy.
      * @return . The address of the new strategy.
      */
     function newStrategy(
         string memory _name,
         uint32 _remoteDomain,
         uint256 _remoteChainId,
-        address _remoteVault,
-        address _depositer
+        address _remoteVault
     ) external virtual returns (address) {
         // Pre-compute the strategy address (next nonce)
         address predictedStrategyAddress = computeCreateAddress(nonce);
@@ -80,8 +78,7 @@ contract StrategyFactory is BaseCCTP {
                     address(MESSAGE_TRANSMITTER),
                     _remoteDomain,
                     _remoteChainId,
-                    _remoteCounterpart,
-                    _depositer
+                    _remoteCounterpart
                 )
             )
         );

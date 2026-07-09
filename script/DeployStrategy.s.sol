@@ -19,7 +19,6 @@ contract DeployStrategy is Script {
     // STRATEGY PARAMETERS
     // ============================================
     string constant STRATEGY_NAME = "Base Yearn Morpho OG USDC v2";
-    address constant DEPOSITER = 0x696d02Db93291651ED510704c9b286841d506987;
 
     // Vault addresses
     address constant BASE_VAULT = 0xef417a2512C5a41f69AE4e021648b69a7CdE5D03; // Source strategy remote vault
@@ -39,8 +38,8 @@ contract DeployStrategy is Script {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         vm.startBroadcast();
 
-        address strategy = StrategyFactory(MAINNET_FACTORY)
-            .newStrategy(STRATEGY_NAME, _remoteDomain, _remoteChainId, _remoteVault, DEPOSITER);
+        address strategy =
+            StrategyFactory(MAINNET_FACTORY).newStrategy(STRATEGY_NAME, _remoteDomain, _remoteChainId, _remoteVault);
 
         vm.stopBroadcast();
 

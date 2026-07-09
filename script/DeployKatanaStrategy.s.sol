@@ -33,7 +33,6 @@ contract DeployKatanaStrategy is Script {
     address constant SOURCE_STRATEGY = 0xc5b16E7eFe1CA05714477b8edcAb4deE9b93a27C;
 
     // Role addresses
-    address constant DEPOSITER = 0x696d02Db93291651ED510704c9b286841d506987;
     address constant GOVERNANCE = 0xBe7c7efc1ef3245d37E3157F76A512108D6D7aE6;
     address constant MANAGEMENT = 0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7;
     address constant PERFORMANCE_FEE_RECIPIENT = 0x5A74Cb32D36f2f517DB6f7b0A0591e09b22cDE69;
@@ -73,7 +72,7 @@ contract DeployKatanaStrategy is Script {
         vm.startBroadcast(deployer);
 
         KatanaStrategy originStrategy = new KatanaStrategy(
-            UNDERLYING_ASSET, STRATEGY_NAME, VB_TOKEN, UNIFIED_BRIDGE, KATANA_NETWORK_ID, predictedRemote, DEPOSITER
+            UNDERLYING_ASSET, STRATEGY_NAME, VB_TOKEN, UNIFIED_BRIDGE, KATANA_NETWORK_ID, predictedRemote
         );
 
         IBaseHealthCheck(address(originStrategy)).setPendingManagement(MANAGEMENT);

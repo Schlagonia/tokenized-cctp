@@ -49,9 +49,11 @@ contract HyperIntegrationTest is Test {
             address(ETH_MESSAGE_TRANSMITTER),
             CCTPHelpers.HYPEREVM_DOMAIN, // domain 19
             999,
-            mockRemoteStrategy,
-            depositor
+            mockRemoteStrategy
         );
+
+        // Deposits are gated by the BaseHealthCheck allowed mapping.
+        strategy.setAllowed(depositor, true);
 
         // Label addresses
         vm.label(address(strategy), "CCTPStrategy");
@@ -75,7 +77,7 @@ contract HyperIntegrationTest is Test {
             CCTPHelpers.HYPEREVM_DOMAIN,
             "Wrong remote domain"
         );
-        assertEq(strategy.DEPOSITER(), depositor, "Wrong depositor");
+        assertTrue(strategy.allowed(depositor), "Depositor not allowed");
     }
 
     /*//////////////////////////////////////////////////////////////

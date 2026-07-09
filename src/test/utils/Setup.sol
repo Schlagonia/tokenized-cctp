@@ -135,7 +135,7 @@ contract Setup is Test, IEvents {
         decimals = asset.decimals();
 
         // Set the vault address early
-        vault = IERC4626(0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca);
+        vault = IERC4626(0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61);
 
         // Now deploy main strategy with the actual remote address
         (strategyFactory, strategy) = deployMainnetContracts();
@@ -198,13 +198,16 @@ contract Setup is Test, IEvents {
                 "CCTP USDC Strategy",
                 BASE_DOMAIN,
                 BASE_CHAIN_ID,
-                address(vault),
-                depositor
+                address(vault)
             )
         );
 
         vm.prank(management);
         _strategy.acceptManagement();
+
+        // Deposits are gated by the BaseHealthCheck allowed mapping.
+        vm.prank(management);
+        _strategy.setAllowed(depositor, true);
 
         factory = _strategy.FACTORY();
     }
