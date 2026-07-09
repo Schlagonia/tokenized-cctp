@@ -38,8 +38,8 @@ contract DeployStrategy is Script {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
         vm.startBroadcast();
 
-        address strategy = StrategyFactory(MAINNET_FACTORY)
-            .newStrategy(STRATEGY_NAME, _remoteDomain, _remoteChainId, _remoteVault);
+        address strategy =
+            StrategyFactory(MAINNET_FACTORY).newStrategy(STRATEGY_NAME, _remoteDomain, _remoteChainId, _remoteVault);
 
         vm.stopBroadcast();
 

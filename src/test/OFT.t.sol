@@ -20,6 +20,7 @@ import {IOFTStrategy, IOFTRemoteStrategy} from "../interfaces/IOFTStrategy.sol";
 contract OFTTest is Test {
     IOFTStrategy public origin;
     IOFTRemoteStrategy public remote;
+    OFTRemoteStrategyFactory public remoteFactory;
 
     uint256 public ethFork;
     uint256 public hoodFork;
@@ -52,7 +53,7 @@ contract OFTTest is Test {
 
         // Remote factory on Robinhood (generic: token/OFT/endpoint per call).
         vm.selectFork(hoodFork);
-        OFTRemoteStrategyFactory remoteFactory = new OFTRemoteStrategyFactory(
+        remoteFactory = new OFTRemoteStrategyFactory(
             governance,
             80_000,
             100_000
@@ -81,7 +82,9 @@ contract OFTTest is Test {
                 ETHEREUM_EID,
                 ROBINHOOD_EID,
                 4663,
-                VAULT
+                VAULT,
+                RUSDG_OFT,
+                HOOD_ENDPOINT
             )
         );
         vm.startPrank(management);
@@ -109,6 +112,62 @@ contract OFTTest is Test {
 
         vm.label(address(origin), "OFTStrategy");
         vm.label(address(remote), "OFTRemoteStrategy");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            SALT / FRONT-RUN
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The remote salt commits to the bridge config, so a front-run
+    ///         with a different OFT (or endpoint) resolves to a different
+    ///         address that can never bind the origin's REMOTE_COUNTERPART.
+    function test_remoteSalt_commitsToBridgeConfig() public {
+        // Origin lives on ethFork; the remote factory code is etched there too,
+        // so the CREATE3 address derivation is available on this fork.
+        vm.selectFork(ethFork);
+        address attackerOft = address(0xBAD0);
+        address attackerEndpoint = address(0xBAD1);
+
+        // The honest config resolves to exactly the address the origin trusts.
+        address honest = remoteFactory.computeCreateAddress(
+            VAULT,
+            ETHEREUM_EID,
+            address(origin),
+            RUSDG_OFT,
+            HOOD_ENDPOINT
+        );
+        assertEq(honest, address(remote), "honest predict != deployed remote");
+        assertEq(
+            honest,
+            origin.REMOTE_COUNTERPART(),
+            "honest predict != origin counterpart"
+        );
+
+        // A different OFT diverges the address away from the origin's binding.
+        address forgedOft = remoteFactory.computeCreateAddress(
+            VAULT,
+            ETHEREUM_EID,
+            address(origin),
+            attackerOft,
+            HOOD_ENDPOINT
+        );
+        assertTrue(
+            forgedOft != origin.REMOTE_COUNTERPART(),
+            "forged OFT still binds origin"
+        );
+
+        // Same for a different endpoint.
+        address forgedEndpoint = remoteFactory.computeCreateAddress(
+            VAULT,
+            ETHEREUM_EID,
+            address(origin),
+            RUSDG_OFT,
+            attackerEndpoint
+        );
+        assertTrue(
+            forgedEndpoint != origin.REMOTE_COUNTERPART(),
+            "forged endpoint still binds origin"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

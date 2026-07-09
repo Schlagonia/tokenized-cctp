@@ -108,9 +108,11 @@ abstract contract BaseOFT is ILayerZeroComposer {
     ///         this contract.
     function lzCompose(
         address _from,
-        bytes32 /* _guid */,
+        bytes32,
+        /* _guid */
         bytes calldata _message,
-        address /* _executor */,
+        address,
+        /* _executor */
         bytes calldata /* _extraData */
     ) external payable virtual override {
         require(msg.sender == ENDPOINT, "!endpoint");

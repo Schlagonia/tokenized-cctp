@@ -225,10 +225,7 @@ contract OperationTest is Setup {
         assertEq(strategy.lastRemoteAssetsReport(), freshTimestamp);
     }
 
-    function test_deployTimestampRejectsPreDepositReport()
-        public
-        useEthFork
-    {
+    function test_deployTimestampRejectsPreDepositReport() public useEthFork {
         uint256 _amount = 10000e6;
         uint256 staleRemoteTotal = 9000e6;
 

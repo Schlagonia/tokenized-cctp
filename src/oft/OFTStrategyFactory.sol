@@ -9,7 +9,9 @@ interface IOFTRemoteFactory {
     function computeCreateAddress(
         address _vault,
         uint32 _originEid,
-        address _originCounterpart
+        address _originCounterpart,
+        address _oft,
+        address _endpoint
     ) external view returns (address);
 }
 
@@ -60,6 +62,8 @@ contract OFTStrategyFactory {
     /// @param _remoteEid LayerZero endpoint ID of the remote chain
     /// @param _remoteChainId Chain id of the remote chain
     /// @param _remoteVault ERC4626 vault the remote deploys into
+    /// @param _remoteOft OFT adapter on the remote chain (predict-only)
+    /// @param _remoteEndpoint LayerZero endpoint on the remote chain (predict-only)
     function newStrategy(
         string memory _name,
         address _asset,
@@ -68,13 +72,17 @@ contract OFTStrategyFactory {
         uint32 _originEid,
         uint32 _remoteEid,
         uint256 _remoteChainId,
-        address _remoteVault
+        address _remoteVault,
+        address _remoteOft,
+        address _remoteEndpoint
     ) external returns (address) {
         address predicted = computeCreateAddress(nonce);
         address remoteCounterpart = computeRemoteCreateAddress(
             _remoteVault,
             _originEid,
-            predicted
+            predicted,
+            _remoteOft,
+            _remoteEndpoint
         );
 
         address strategy = address(
@@ -118,16 +126,22 @@ contract OFTStrategyFactory {
     }
 
     /// @notice Compute the remote counterpart address for an origin.
+    /// @dev The remote salt commits to the remote-chain OFT/endpoint, so they
+    ///      must be supplied here to predict the address the remote will occupy.
     function computeRemoteCreateAddress(
         address _vault,
         uint32 _originEid,
-        address _originCounterpart
+        address _originCounterpart,
+        address _remoteOft,
+        address _remoteEndpoint
     ) public view returns (address) {
         return
             IOFTRemoteFactory(REMOTE_FACTORY).computeCreateAddress(
                 _vault,
                 _originEid,
-                _originCounterpart
+                _originCounterpart,
+                _remoteOft,
+                _remoteEndpoint
             );
     }
 

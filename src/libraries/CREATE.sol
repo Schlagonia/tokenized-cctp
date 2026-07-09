@@ -39,6 +39,6 @@ library CREATE {
         bytes1 listPrefix = bytes1(uint8(0xc0 + payloadLen));
 
         bytes32 h = keccak256(abi.encodePacked(listPrefix, rlpAddr, rlpNonce));
-        return address(uint160(uint(h)));
+        return address(uint160(uint256(h)));
     }
 }

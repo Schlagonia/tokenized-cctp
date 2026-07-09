@@ -37,6 +37,13 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
         BaseOFT(_oft, _endpoint, _originEid, _lzOptions)
     {
         require(OFT.token() == _asset, "OftMismatch");
+        // OFT local decimals must equal the asset's, or amounts misdenominate.
+        require(
+            OFT.decimalConversionRate() ==
+                10 **
+                    (uint256(ERC20(_asset).decimals()) - OFT.sharedDecimals()),
+            "DecimalsMismatch"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

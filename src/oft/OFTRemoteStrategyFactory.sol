@@ -55,7 +55,13 @@ contract OFTRemoteStrategyFactory is Governance {
         uint32 _originEid,
         address _originCounterpart
     ) external returns (address) {
-        bytes32 salt = getSalt(_vault, _originEid, _originCounterpart);
+        bytes32 salt = getSalt(
+            _vault,
+            _originEid,
+            _originCounterpart,
+            _oft,
+            _endpoint
+        );
         if (deployments[salt] != address(0)) {
             return deployments[salt];
         }
@@ -87,26 +93,41 @@ contract OFTRemoteStrategyFactory is Governance {
     }
 
     /// @notice Compute the deterministic address of a remote strategy.
-    /// @dev Independent of the token/OFT config, so the origin factory can
-    ///      predict it knowing only the vault, origin EID and origin address.
+    /// @dev The salt commits to the bridge config (_oft/_endpoint) so a remote
+    ///      deployed with a different config lands at a different address. The
+    ///      origin factory must therefore predict with the same remote-chain
+    ///      OFT/endpoint it expects.
     function computeCreateAddress(
         address _vault,
         uint32 _originEid,
-        address _originCounterpart
+        address _originCounterpart,
+        address _oft,
+        address _endpoint
     ) public view returns (address) {
         return
             CREATE3.getDeployed(
                 address(this),
-                getSalt(_vault, _originEid, _originCounterpart)
+                getSalt(_vault, _originEid, _originCounterpart, _oft, _endpoint)
             );
     }
 
     function getSalt(
         address _vault,
         uint32 _originEid,
-        address _originCounterpart
+        address _originCounterpart,
+        address _oft,
+        address _endpoint
     ) public pure returns (bytes32) {
-        return keccak256(abi.encode(_vault, _originEid, _originCounterpart));
+        return
+            keccak256(
+                abi.encode(
+                    _vault,
+                    _originEid,
+                    _originCounterpart,
+                    _oft,
+                    _endpoint
+                )
+            );
     }
 
     /// @notice The compose options the factory sets on remote strategies.

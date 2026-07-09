@@ -43,6 +43,9 @@ interface IOFT {
     /// @notice 10 ** (localDecimals - sharedDecimals); amounts truncate to this.
     function decimalConversionRate() external view returns (uint256);
 
+    /// @notice Decimals shared across the OFT mesh (amounts truncate to these).
+    function sharedDecimals() external view returns (uint8);
+
     /// @notice Quote the messaging fee for a send() operation.
     function quoteSend(
         SendParam calldata _sendParam,
