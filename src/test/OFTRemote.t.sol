@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console2.sol";
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
@@ -158,14 +158,11 @@ contract OFTRemoteTest is Test {
         assertApproxEqRel(remote.balanceOfAsset(), 40_000e6, 0.001e18);
     }
 
-    /// @notice A report rides the REAL, already-configured USDG OFT as a
-    ///         0-amount compose send — no separate LayerZero wiring needed.
+    /// @notice A report deploys what is idle and rides the REAL,
+    ///         already-configured USDG OFT on a 1-unit transfer.
     function test_report_viaOft() public {
         uint256 amount = 50_000e6;
         _dealUSDG(address(remote), amount);
-
-        vm.prank(keeper);
-        remote.pushFunds(amount); // deploy into the vault first
 
         uint256 ethBefore = address(remote).balance;
 
@@ -173,15 +170,35 @@ contract OFTRemoteTest is Test {
         vm.prank(keeper);
         (uint256 ta, ) = remote.report();
 
-        // Reports the vault value; no USDG moved (0-amount send)
+        // All but the unit went into the vault; the unit went home
         assertApproxEqRel(ta, amount, 0.001e18, "!reported");
-        assertEq(remote.balanceOfAsset(), 0, "!noTokenMoved");
+        assertEq(ta, remote.totalAssets(), "!total");
+        assertEq(remote.balanceOfAsset(), 0, "!unitSent");
         // A small LayerZero fee was paid from the reserve
         assertLt(address(remote).balance, ethBefore, "!fee");
     }
 
-    /// @notice Full remote withdraw: redeem from the REAL vault, bridge USDG
-    ///         home via the OFT, and report — all over the real USDG bridge.
+    /// @notice With nothing loose the report withdraws 1,000 units, and the
+    ///         next reports live off them.
+    function test_report_withNothingLoose() public {
+        uint256 amount = 50_000e6;
+        _dealUSDG(address(remote), amount);
+
+        vm.prank(keeper);
+        remote.pushFunds(amount);
+
+        for (uint256 i = 0; i < 3; i++) {
+            skip(1);
+            vm.prank(keeper);
+            remote.report();
+        }
+
+        // 1,000 units withdrawn once, 1 sent per report
+        assertApproxEqAbs(remote.balanceOfAsset(), 997, 2, "!loose");
+    }
+
+    /// @notice Full remote withdraw: redeem from the REAL vault and bridge
+    ///         USDG home with the report on the same OFT transfer.
     function test_processWithdrawal_viaOft() public {
         uint256 amount = 100_000e6;
         _dealUSDG(address(remote), amount);
@@ -190,11 +207,28 @@ contract OFTRemoteTest is Test {
         remote.pushFunds(amount);
 
         skip(1);
+        vm.recordLogs();
         vm.prank(keeper);
         remote.processWithdrawal(40_000e6);
 
         // Redeemed from the vault and bridged home (burned by the adapter)
         assertLe(remote.balanceOfAsset(), 1e6, "!bridgedHome");
+
+        // One send, carrying the report
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 oftSent = keccak256("OFTSent(uint256,bool,uint256)");
+        uint256 sends;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter != address(remote)) continue;
+            if (logs[i].topics[0] != oftSent) continue;
+            (, bool report, ) = abi.decode(
+                logs[i].data,
+                (uint256, bool, uint256)
+            );
+            assertTrue(report, "!report");
+            sends++;
+        }
+        assertEq(sends, 1, "!oneSend");
     }
 
     function test_report_onlyKeepers() public {

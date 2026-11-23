@@ -12,10 +12,14 @@ import {BaseOFT} from "../bases/BaseOFT.sol";
 ///         deploys it into an ERC4626 vault, and reports totalAssets home over
 ///         the SAME OFT bridge (e.g. USDG on Robinhood).
 /// @dev Bridges assets home via the OFT; reports ride the OFT as compose
-///      messages — attached to a real transfer, or as a 0-amount send for a
+///      messages — attached to a withdrawal, or to a 1-unit transfer for a
 ///      standalone report. Must hold an ETH reserve for LayerZero fees.
 contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
     using SafeERC20 for ERC20;
+
+    /// @notice Smallest amount a report moves in or out of the vault.
+    /// @dev Vaults can revert, or return nothing, on less.
+    uint256 internal constant DUST = 1_000;
 
     constructor(
         address _asset,
@@ -52,17 +56,39 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
                 BASEREMOTESTRATEGY IMPLEMENTATIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Bridge assets back to the origin chain via the OFT (no report).
+    /// @notice Deploy idle funds and send the report home with 1 unit.
+    /// @dev Some OFTs reject 0-amount sends.
+    function report()
+        external
+        override
+        isReady
+        onlyKeepers
+        returns (uint256 _totalAssets, uint256)
+    {
+        uint256 idle = balanceOfAsset();
+        if (idle == 0) {
+            _pullFunds(DUST);
+        } else if (idle > DUST && !isShutdown) {
+            _pushFunds(idle - 1);
+        }
+        _bridgeAssets(1);
+        _totalAssets = totalAssets();
+        emit Reported(_totalAssets);
+    }
+
+    /// @notice Bridge assets home with the report on the same transfer.
     function _bridgeAssets(
         uint256 _amount
     ) internal override returns (uint256) {
-        return _oftSend(_amount, "");
+        return
+            _oftSend(
+                _amount,
+                abi.encode(totalAssets() - _amount, block.timestamp)
+            );
     }
 
-    /// @notice Send a standalone report home as a 0-amount OFT compose.
-    function _bridgeMessage(bytes memory data) internal override {
-        _oftSend(0, data);
-    }
+    /// @dev Reports are sent with the assets.
+    function _bridgeMessage(bytes memory) internal override {}
 
     /*//////////////////////////////////////////////////////////////
                         LAYERZERO COMPOSE
