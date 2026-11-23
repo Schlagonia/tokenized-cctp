@@ -44,6 +44,8 @@ contract OFTRemoteStrategy is BaseRemote4626, BaseOFT {
                     (uint256(ERC20(_asset).decimals()) - OFT.sharedDecimals()),
             "DecimalsMismatch"
         );
+        // Decimals must be the same on both chains.
+        require(OFT.decimalConversionRate() == 1, "!decimals");
     }
 
     /*//////////////////////////////////////////////////////////////

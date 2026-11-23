@@ -108,6 +108,34 @@ contract OFTMainnetTest is Test {
         assertEq(uint256(strategy.REMOTE_ID()), uint256(ROBINHOOD_EID));
     }
 
+    /// @notice Reports are not converted, so a token that doesn't use the
+    ///         OFT's shared decimals is rejected.
+    function test_constructor_revertsOnConversionRate() public {
+        // 5 shared decimals with a rate of 10 still passes the asset check.
+        vm.mockCall(
+            USDG_OFT,
+            abi.encodeWithSignature("sharedDecimals()"),
+            abi.encode(uint8(5))
+        );
+        vm.mockCall(
+            USDG_OFT,
+            abi.encodeWithSignature("decimalConversionRate()"),
+            abi.encode(uint256(10))
+        );
+
+        vm.expectRevert("!decimals");
+        new OFTStrategy(
+            USDG,
+            "USDG Robinhood OFT Strategy",
+            USDG_OFT,
+            LZ_ENDPOINT,
+            ROBINHOOD_EID,
+            4663,
+            remoteCounterpart,
+            ""
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                         OUTBOUND OFT BRIDGE (REAL)
     //////////////////////////////////////////////////////////////*/

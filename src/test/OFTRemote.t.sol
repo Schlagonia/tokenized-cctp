@@ -81,6 +81,34 @@ contract OFTRemoteTest is Test {
         assertEq(IERC4626(VAULT).asset(), USDG);
     }
 
+    /// @notice Reports are not converted, so a token that doesn't use the
+    ///         OFT's shared decimals is rejected.
+    function test_constructor_revertsOnConversionRate() public {
+        // 5 shared decimals with a rate of 10 still passes the asset check.
+        vm.mockCall(
+            USDG_OFT,
+            abi.encodeWithSignature("sharedDecimals()"),
+            abi.encode(uint8(5))
+        );
+        vm.mockCall(
+            USDG_OFT,
+            abi.encodeWithSignature("decimalConversionRate()"),
+            abi.encode(uint256(10))
+        );
+
+        vm.expectRevert("!decimals");
+        new OFTRemoteStrategy(
+            USDG,
+            governance,
+            USDG_OFT,
+            LZ_ENDPOINT,
+            ETHEREUM_EID,
+            originCounterpart,
+            VAULT,
+            OFTOptions.composeOptions(80_000, 100_000)
+        );
+    }
+
     function test_setLzOptions_onlyGovernance() public {
         bytes memory newOptions = OFTOptions.composeOptions(90_000, 120_000);
 
