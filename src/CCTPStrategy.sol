@@ -38,7 +38,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Bridge assets to remote chain via CCTP
-    /// @dev Called by BaseCrossChain._deployFunds()
+    /// @dev Called by BaseCrossChain._tend()
     function _bridgeAssets(
         uint256 _amount
     ) internal override returns (uint256) {

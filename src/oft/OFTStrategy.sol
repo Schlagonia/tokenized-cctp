@@ -11,7 +11,7 @@ import {BaseOFT} from "../bases/BaseOFT.sol";
 /// @notice Origin strategy that bridges its asset to a remote chain via a
 ///         LayerZero OFT and tracks the remote deployment through report
 ///         messages carried over the SAME OFT bridge (e.g. USDG to Robinhood).
-/// @dev Assets are bridged on deposit via the OFT; the remote attaches its
+/// @dev Assets are bridged on tend via the OFT; the remote attaches its
 ///      totalAssets report to an OFT transfer (a compose message), delivered
 ///      here in `lzCompose`. The strategy must hold an ETH reserve to pay
 ///      LayerZero native fees.

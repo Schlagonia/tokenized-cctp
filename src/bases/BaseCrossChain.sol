@@ -45,6 +45,8 @@ abstract contract BaseCrossChain is BaseHealthCheck {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Reports total assets including remote deployments
+    /// @dev Don't report while a withdrawal from the remote is in flight, or
+    ///      the returned assets are counted twice.
     /// @return _totalAssets Sum of local balance and remote assets
     function _harvestAndReport()
         internal
@@ -79,10 +81,10 @@ abstract contract BaseCrossChain is BaseHealthCheck {
         }
 
         // NOTE: Reports older than the current watermark are ignored. Since
-        // local deploys also update that watermark, a valid remote report can
-        // still be skipped if it was sent before a later deposit. For example,
+        // local tends also update that watermark, a valid remote report can
+        // still be skipped if it was sent before a later tend. For example,
         // a withdrawal can trigger a lower remote asset report that arrives
-        // after a new deposit already increased remoteAssets locally. In that
+        // after a new tend already increased remoteAssets locally. In that
         // case accounting can remain incorrect until the next fresh remote
         // report replaces the local estimate.
         lastRemoteAssetsReport = timestamp;
@@ -98,11 +100,14 @@ abstract contract BaseCrossChain is BaseHealthCheck {
                         DEPLOYMENT LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deploy funds to remote chain
-    function _deployFunds(uint256 _amount) internal virtual override {
-        uint256 newRemoteAssets = remoteAssets + _bridgeAssets(_amount);
-        // Count deposits as remote assets immediately and advance the report
-        // watermark so a report sent before this deploy cannot later overwrite
+    /// @notice Deposits stay idle. A keeper bridges them with `tend()`.
+    function _deployFunds(uint256) internal pure virtual override {}
+
+    /// @notice Bridge all idle assets to the remote chain.
+    function _tend(uint256 _totalIdle) internal virtual override {
+        uint256 newRemoteAssets = remoteAssets + _bridgeAssets(_totalIdle);
+        // Count bridged assets as remote immediately and advance the report
+        // watermark so a report sent before this tend cannot later overwrite
         // the locally-added amount before the remote side has received it.
         lastRemoteAssetsReport = block.timestamp;
         remoteAssets = newRemoteAssets;

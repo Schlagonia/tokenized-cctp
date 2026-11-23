@@ -227,6 +227,10 @@ contract OFTTest is Test {
         IERC20(USDG).approve(address(origin), _amount);
         origin.deposit(_amount, depositor);
         vm.stopPrank();
+
+        // Deposits stay idle until a keeper bridges them.
+        vm.prank(keeper);
+        origin.tend();
     }
 
     /*//////////////////////////////////////////////////////////////

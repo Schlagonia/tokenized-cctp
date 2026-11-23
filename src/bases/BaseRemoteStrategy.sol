@@ -133,6 +133,8 @@ abstract contract BaseRemoteStrategy is Governance, AuctionSwapper {
     /// @notice Process withdrawal request from origin chain
     /// @dev Withdraws from vault if needed and bridges tokens back.
     ///      Automatically caps withdrawal to (loose + deployed) assets if requested amount exceeds available.
+    ///      Assets and report reach the origin separately. Don't report or tend
+    ///      the origin until both have arrived.
     /// @param _amount Amount to withdraw and bridge back
     function processWithdrawal(
         uint256 _amount

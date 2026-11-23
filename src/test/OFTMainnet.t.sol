@@ -89,6 +89,10 @@ contract OFTMainnetTest is Test {
         IERC20(USDG).approve(address(strategy), _amount);
         strategy.deposit(_amount, depositor);
         vm.stopPrank();
+
+        // Deposits stay idle until a keeper bridges them.
+        vm.prank(keeper);
+        strategy.tend();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -108,9 +112,9 @@ contract OFTMainnetTest is Test {
                         OUTBOUND OFT BRIDGE (REAL)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Depositing bridges USDG to Robinhood through the real OFT
+    /// @notice Tending bridges USDG to Robinhood through the real OFT
     ///         adapter: USDG is burned, remoteAssets credited, ETH fee paid.
-    function test_deposit_bridgesViaOFT() public {
+    function test_tend_bridgesViaOFT() public {
         uint256 amount = 10_000e6;
 
         uint256 ethBefore = address(strategy).balance;
@@ -129,16 +133,43 @@ contract OFTMainnetTest is Test {
         assertLt(address(strategy).balance, ethBefore, "!fee");
     }
 
-    function test_deposit_revertsWithoutEthReserve() public {
+    function test_tend_revertsWithoutEthReserve() public {
         vm.prank(management);
         strategy.rescueETH(management, address(strategy).balance);
 
         _dealUSDG(depositor, 1_000e6);
         vm.startPrank(depositor);
         IERC20(USDG).approve(address(strategy), 1_000e6);
-        vm.expectRevert(bytes("!fee"));
         strategy.deposit(1_000e6, depositor);
         vm.stopPrank();
+
+        vm.expectRevert(bytes("!fee"));
+        vm.prank(keeper);
+        strategy.tend();
+    }
+
+    /// @notice A deposit made by anyone for an allowed receiver bridges
+    ///         nothing: no fee is spent and the report watermark stays put.
+    function test_deposit_byOutsider_doesNotBridge() public {
+        uint256 amount = 1_000e6;
+        uint256 ethBefore = address(strategy).balance;
+
+        _dealUSDG(user, amount);
+        vm.startPrank(user);
+        IERC20(USDG).approve(address(strategy), amount);
+        strategy.deposit(amount, depositor);
+        vm.stopPrank();
+
+        assertEq(IERC20(USDG).balanceOf(address(strategy)), amount, "!idle");
+        assertEq(strategy.remoteAssets(), 0, "!remoteAssets");
+        assertEq(strategy.lastRemoteAssetsReport(), 0, "!watermark");
+        assertEq(address(strategy).balance, ethBefore, "!reserve");
+    }
+
+    function test_tend_onlyKeepers() public {
+        vm.expectRevert("!keeper");
+        vm.prank(user);
+        strategy.tend();
     }
 
     /*//////////////////////////////////////////////////////////////
