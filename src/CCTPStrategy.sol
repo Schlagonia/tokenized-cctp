@@ -48,7 +48,7 @@ contract CCTPStrategy is BaseCrossChain, BaseCCTP {
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0),
-            0,
+            _minFee(_amount),
             FINALITY_THRESHOLD_FINALIZED
         );
 

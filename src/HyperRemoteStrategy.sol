@@ -220,7 +220,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0), // No destination caller restriction
-            0, // No max fee for standard transfer
+            _minFee(amount), // Circle's minimum fee
             FINALITY_THRESHOLD_FINALIZED
         );
 

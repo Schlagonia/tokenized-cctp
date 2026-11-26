@@ -24,4 +24,7 @@ interface ITokenMessenger {
     ) external;
 
     function localMessageTransmitter() external view returns (address);
+
+    /// @dev Only on messengers that can charge a minimum fee.
+    function getMinFeeAmount(uint256 amount) external view returns (uint256);
 }
