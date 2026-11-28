@@ -50,4 +50,13 @@ abstract contract BaseCCTP is IMessageHandlerV2 {
     ) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(_address)));
     }
+
+    function _minFee(uint256 _amount) internal view returns (uint256) {
+        try TOKEN_MESSENGER.getMinFeeAmount(_amount) returns (uint256 _fee) {
+            return _fee;
+        } catch {
+            // Older messengers have no minimum fee.
+            return 0;
+        }
+    }
 }

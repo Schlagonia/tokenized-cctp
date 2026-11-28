@@ -259,6 +259,10 @@ contract Setup is Test, IEvents {
 
         vm.prank(_user);
         _strategy.deposit(_amount, _user);
+
+        // Deposits stay idle until a keeper bridges them.
+        vm.prank(keeper);
+        _strategy.tend();
     }
 
     function mintAndDepositIntoStrategy(

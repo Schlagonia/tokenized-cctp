@@ -27,6 +27,10 @@ contract CCTPIntegrationTest is Setup {
         uint256 shares = strategy.deposit(depositAmount, depositor);
         vm.stopPrank();
 
+        // Step 2: Keeper bridges the idle funds
+        vm.prank(keeper);
+        strategy.tend();
+
         assertGt(shares, 0);
         assertEq(strategy.balanceOf(depositor), shares);
 

@@ -45,7 +45,7 @@ contract CCTPRemoteStrategy is BaseRemote4626, BaseCCTP {
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0),
-            0,
+            _minFee(amount),
             FINALITY_THRESHOLD_FINALIZED
         );
 

@@ -71,6 +71,45 @@ contract OperationTest is Setup {
         assertEq(strategy.totalAssets(), _amount);
     }
 
+    // Test 3: Deposits stay idle, even one made by an outsider for an allowed receiver
+    function test_deposit_doesNotBridge() public useEthFork {
+        uint256 _amount = 1000e6;
+
+        airdropUSDC(user, _amount);
+        vm.startPrank(user);
+        USDC_ETHEREUM.approve(address(strategy), _amount);
+        strategy.deposit(_amount, depositor);
+        vm.stopPrank();
+
+        assertEq(USDC_ETHEREUM.balanceOf(address(strategy)), _amount);
+        assertEq(strategy.remoteAssets(), 0);
+        assertEq(strategy.lastRemoteAssetsReport(), 0);
+        assertEq(strategy.totalAssets(), _amount);
+    }
+
+    // Test 3b: Only a keeper's tend bridges the idle funds
+    function test_tend_bridgesIdle() public useEthFork {
+        uint256 _amount = 1000e6;
+
+        airdropUSDC(depositor, _amount);
+        vm.startPrank(depositor);
+        USDC_ETHEREUM.approve(address(strategy), _amount);
+        strategy.deposit(_amount, depositor);
+        vm.stopPrank();
+
+        vm.expectRevert("!keeper");
+        vm.prank(user);
+        strategy.tend();
+
+        vm.prank(keeper);
+        strategy.tend();
+
+        assertEq(USDC_ETHEREUM.balanceOf(address(strategy)), 0);
+        assertEq(strategy.remoteAssets(), _amount);
+        assertEq(strategy.lastRemoteAssetsReport(), block.timestamp);
+        assertEq(strategy.totalAssets(), _amount);
+    }
+
     // Test 4: Remote asset tracking - profit updates
     function test_remoteAssetTracking_profit() public useEthFork {
         uint256 _amount = 10000e6; // $10k USDC

@@ -11,8 +11,8 @@ import {OFTComposeMsgCodec} from "../libraries/OFTComposeMsgCodec.sol";
 /// @dev Tokens AND report messages both travel over the SAME OFT bridge, so
 ///      the strategy reuses the OFT's existing LayerZero configuration and
 ///      needs none of its own — no delegate, no library/DVN wiring. A report
-///      is attached to an OFT `send` as a compose message: alongside a real
-///      token transfer, or as a 0-amount send purely to carry a standalone
+///      is attached to an OFT `send` as a compose message: to a withdrawal,
+///      or to a 1-unit transfer of its own when it is a standalone
 ///      report. The origin receives it in `lzCompose`. `lzOptions` (the
 ///      executor gas for delivery/compose) is set once at construction by the
 ///      factory. Native fees are paid from this contract's ETH balance.
@@ -58,10 +58,9 @@ abstract contract BaseOFT is ILayerZeroComposer {
 
     /// @notice Send `_amount` of the OFT token to the counterpart strategy,
     ///         optionally carrying a report as a compose message.
-    /// @dev `_amount` may be 0 to send a report with no token movement.
-    ///      Credits the receipt's amountReceivedLD so shared-decimal
+    /// @dev Credits the receipt's amountReceivedLD so shared-decimal
     ///      truncation cannot inflate accounting.
-    /// @param _amount Amount to bridge in local decimals (may be 0)
+    /// @param _amount Amount to bridge in local decimals
     /// @param _report Optional report payload; empty for a token-only transfer
     /// @return amountReceived The amount credited on the destination chain
     function _oftSend(

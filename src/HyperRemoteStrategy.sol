@@ -96,6 +96,8 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
     }
 
     /// @notice Override to prevent _pullFunds from being called to cause async withdraw
+    /// @dev Assets and report reach the origin separately. Don't report or tend
+    ///      the origin until both have arrived.
     function processWithdrawal(
         uint256 _amount
     ) external virtual override onlyKeepers isReady {
@@ -218,7 +220,7 @@ contract HyperRemoteStrategy is BaseRemoteStrategy, BaseHyperCore, BaseCCTP {
             _addressToBytes32(REMOTE_COUNTERPART),
             address(asset),
             bytes32(0), // No destination caller restriction
-            0, // No max fee for standard transfer
+            _minFee(amount), // Circle's minimum fee
             FINALITY_THRESHOLD_FINALIZED
         );
 
